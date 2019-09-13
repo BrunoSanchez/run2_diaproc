@@ -21,7 +21,7 @@
 #  MA 02110-1301, USA.
 #  
 #  
-import sh
+
 import sqlite3
 import pandas as pd
 
@@ -48,5 +48,5 @@ for filtr, visits in visitab.groupby('filter'):
 with open('coaddCommands.sh', 'w') as cf:
     for acmd in commands:
         cf.write(acmd)
-        cf.write('/n/n')
+        cf.write('\n \n')
         
