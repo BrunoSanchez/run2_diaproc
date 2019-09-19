@@ -42,7 +42,7 @@ commands = []
 for filtr, visits in visitab.groupby('filter'):
     if filtr not in ['u','y']:
         for avisit in visits.visit:
-            commands.append(cmd.format(avisit, filtr, avisit))
+            commands.append(cmd.format(avisit, avisit, filtr))
 
 with open('diaCommands.sh', 'w') as cf:
     for acmd in commands:
