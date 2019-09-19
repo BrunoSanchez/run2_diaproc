@@ -35,12 +35,13 @@ query = "select DISTINCT(visit), filter from overlaps WHERE tract=4639 and patch
 
 visitab = pd.read_sql_query(query, conn)
 
-cmd = "time imageDifferenceDriver.py  /global/cscratch1/sd/bos0109/templates_003/rerun/ --output /global/cscratch1/sd/bos0109/test_imdiff_run2  --id visit={} -C imageDifferenceDriver_config.py --batch-type=slurm --mpiexec='-bind-to socket'   --cores 32  --job imdiff_v{}_f{} --time 5000 --batch-options='-C knl -q regular'"
+cmd = "time imageDifferenceDriver.py  /global/cscratch1/sd/bos0109/templates_003/rerun/multiband --output /global/cscratch1/sd/bos0109/test_imdiff_run2  --id visit={} -C imageDifferenceDriver_config.py --batch-type=slurm --mpiexec='-bind-to socket'   --cores 32  --job imdiff_v{}_f{} --time 500 --batch-options='-C knl -q regular'"
 
 
 commands = []
 for filtr, visits in visitab.groupby('filter'):
     if filtr not in ['u','y']:
+        print(filtr, visits.visit)
         for avisit in visits.visit:
             commands.append(cmd.format(avisit, avisit, filtr))
 
