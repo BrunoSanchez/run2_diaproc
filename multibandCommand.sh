@@ -16,4 +16,5 @@
 ## After that, we had to select some options for the job to be able 
 ## to run, but happily it seems that it finally worked
 
-nice -n 10 multiBandDriver.py /global/cscratch1/sd/bos0109/templates_003 --rerun multiband --id tract=4639 patch=0,0 filter=u^g^r^i^z^y  --job templ_multiband  --cores 16 --time 500  --batch-type=smp  --config  measureCoaddSources.doPropagateFlags=False --clobber-config --batch-verbose  --batch-stats --batch-options='-C knl -q regular' --mpiexec='-bind-to socket'
+#nice -n 10
+multiBandDriver.py /global/cscratch1/sd/bos0109/templates_003 --rerun multiband --id tract=4639 patch=0,0 filter=u^g^r^i^z^y  --job templ_multiband  --cores 64 --time 500  --batch-type=slurm  --config  measureCoaddSources.doPropagateFlags=False --clobber-config --batch-verbose  --batch-stats --batch-options='-C knl -q regular' --mpiexec='-bind-to socket'
