@@ -1,0 +1,4 @@
+.vscode*
+*.backup
+*code-workspace
+*.pyc
