@@ -23,29 +23,26 @@
 #  
 #  
 
-import sqlite3
+from glob import glob
 import pandas as pd
 
-database = '/global/cscratch1/sd/desc/DC2/data/Run2.1i/rerun/calexp-v1/tracts_mapping.sqlite3'
+repo_dir = '/global/cscratch1/sd/bos0109/test_imdiff_run2/deepDiff/'
 
-conn = sqlite3.connect(database)
-c = conn.cursor()
-
-query = "select DISTINCT(visit), filter from overlaps WHERE tract=4639 and patch='(0, 0)' order by visit"
-
-visitab = pd.read_sql_query(query, conn)
-
-cmd = "time nice -n 10 imageDifferenceDriver.py  /global/cscratch1/sd/bos0109/templates_003/rerun/multiband --output /global/cscratch1/sd/bos0109/test_imdiff_run2  --id visit={} -C imageDifferenceDriver_config.py --batch-type=smp --mpiexec='-bind-to socket'   --cores 4  --job imdiff_v{}_f{} --time 500 --batch-options='-C knl -q regular'"
+templ = 'v*'
 
 
-commands = []
-for filtr, visits in visitab.groupby('filter'):
-    if filtr not in ['u','y']:
-        print(filtr, visits.visit)
-        for avisit in visits.visit:
-            commands.append(cmd.format(avisit, avisit, filtr))
+cmd = "time nice -n 10 forcedPhotCcdDiaDriver.py /global/cscratch1/sd/bos0109/test_imdiff_run2/rerun/multiband --rerun forcedPhot  --id visit={} --cores 4"
 
-with open('diaCommands.sh', 'w') as cf:
+visits_str = ''
+for adir in glob(repo_dir+templ):
+    slimdir = adir.split('/')[-1]
+    visitn = slimdir[1:-3]
+    print(slimdir, visitn)
+    visits_str += visitn+'^'
+
+commands = [cmd.format(visits_str[:-1])]
+
+with open('forcedPhotDiaCommands.sh', 'w') as cf:
     for acmd in commands:
         cf.write(acmd)
         cf.write('\n \n')
