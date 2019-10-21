@@ -38,14 +38,16 @@ def get_coadd_id_for_ra_dec(skymap, ra, dec):
     radec = afwGeom.SpherePoint(ra, dec, afwGeom.degrees)
     tract_info = skymap.findTract(radec)
     patch_info = tract_info.findPatch(radec)
-    coadd_id = {'tract': tract_info.getId(), 'patch': "%d,%d" % patch_info.getIndex()}
+    coadd_id = {'tract': tract_info.getId(), 
+                'patch': "%d,%d" % patch_info.getIndex()}
 
     return coadd_id
 
 
 def cutout_coadd_ra_dec(butler, ra, dec, filter='r', datasetType='deepCoadd', **kwargs):
     """
-    Produce a cutout from coadd from the given butler at the given RA, Dec in decimal degrees.
+    Produce a cutout from coadd from the given butler at 
+    the given RA, Dec in decimal degrees.
     
     Notes
     -----
@@ -67,7 +69,8 @@ def cutout_coadd_ra_dec(butler, ra, dec, filter='r', datasetType='deepCoadd', **
     MaskedImage
     """
     radec = afwGeom.SpherePoint(ra, dec, afwGeom.degrees)
-    return cutout_coadd_spherepoint(butler, radec, filter=filter, datasetType=datasetType)
+    return cutout_coadd_spherepoint(butler, radec, filter=filter, 
+                                    datasetType=datasetType)
     
 
 def cutout_coadd_spherepoint(butler, radec, filter='r', datasetType='deepCoadd',
@@ -105,14 +108,17 @@ def cutout_coadd_spherepoint(butler, radec, filter='r', datasetType='deepCoadd',
     xy = afwGeom.PointI(tractInfo.getWcs().skyToPixel(radec))
     bbox = afwGeom.BoxI(xy - cutoutSize//2, cutoutSize)
 
-    coaddId = {'tract': tractInfo.getId(), 'patch': "%d,%d" % patchInfo.getIndex(), 'filter': filter}
+    coaddId = {'tract': tractInfo.getId(), 
+               'patch': "%d,%d" % patchInfo.getIndex(), 
+               'filter': filter}
     
-    cutout_image = butler.get(datasetType+'_sub', bbox=bbox, immediate=True, dataId=coaddId)
+    cutout_image = butler.get(datasetType+'_sub', bbox=bbox, 
+                              immediate=True, dataId=coaddId)
     
     return cutout_image
     
-def make_cutout_image(butler, ra, dec, filter='r', vmin=None, vmax=None, label=None,
-                      show=True, saveplot=False, savefits=False,
+def make_cutout_image(butler, ra, dec, filter='r', vmin=None, vmax=None, 
+                      label=None, show=True, saveplot=False, savefits=False,
                       datasetType='deepCoadd'):
     """
     Generate and optionally display and save a postage stamp for a given RA, Dec.
@@ -136,7 +142,8 @@ def make_cutout_image(butler, ra, dec, filter='r', vmin=None, vmax=None, label=N
     Uses matplotlib to generate stamps.  Saves FITS file if requested.
     """
 
-    cutout_image = cutout_coadd_ra_dec(butler, ra, dec, filter=filter, datasetType='deepCoadd')
+    cutout_image = cutout_coadd_ra_dec(butler, ra, dec, filter=filter, 
+                                       datasetType='deepCoadd')
     if savefits:
         if isinstance(savefits, str):
             filename = savefits
@@ -150,7 +157,8 @@ def make_cutout_image(butler, ra, dec, filter='r', vmin=None, vmax=None, label=N
     if vmin is None or vmax is None:
         vmin, vmax = zscale.get_limits(cutout_image.image.array)
 
-    plt.imshow(cutout_image.image.array, vmin=vmin, vmax=vmax, cmap='binary_r', origin='lower')
+    plt.imshow(cutout_image.image.array, vmin=vmin, vmax=vmax, 
+               cmap='binary_r', origin='lower')
     plt.colorbar()
     plt.scatter(xy.getX() - cutout_image.getX0(), xy.getY() - cutout_image.getY0(),
                 color='none', edgecolor='red', marker='o', s=200)
@@ -179,7 +187,8 @@ def display_cutout_image(butler, ra, dec, vmin=None, vmax=None, label=None,
     Parameters
     ----------
     backend: string
-        Backend can be anything that lsst.afw.display and your configuration supports: 
+        Backend can be anything that lsst.afw.display and your 
+        =configuration supports: 
         e.g. matplotlib, ds9, ginga, firefly.
     
     Returns
@@ -190,9 +199,11 @@ def display_cutout_image(butler, ra, dec, vmin=None, vmax=None, label=None,
     -----
     Parameters are the same as for make_cutout_image, except for the backend.
     You definitely have the matplotlib backend.
-    ds9, ginga, and firefly can be set up but are non-trivial on the scale of a simple Notebook.
+    ds9, ginga, and firefly can be set up but are non-trivial on the scale 
+    of a simple Notebook.
     """
-    cutout_image = cutout_coadd_ra_dec(butler, ra, dec, filter=filter, datasetType='deepCoadd')
+    cutout_image = cutout_coadd_ra_dec(butler, ra, dec, filter=filter, 
+                                       datasetType='deepCoadd')
     if savefits:
         if isinstance(savefits, str):
             filename = savefits

@@ -69,7 +69,6 @@ def main(tract, patch, filters='griz', outfile='driver_commands/diaCommands.sh',
 
 
 if __name__=='__main__':
-    import sys
     import argparse
     DESC = "Creates commands for difference image driver in the dia_pipe context"
     EPIL = "This will produce a file output with the commands separated by one line"
@@ -96,8 +95,6 @@ if __name__=='__main__':
                         help='Repository where differences are going to be located')
     parser.add_argument('-C', '--conf', metavar='C', type=str, default=config_path, 
                         help='Path of configuration file')
-
-
     args = parser.parse_args()
 
     main(args.tract, args.patch, filters=args.filter, outfile=args.outfile, 
