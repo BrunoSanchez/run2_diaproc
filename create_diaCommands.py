@@ -76,7 +76,6 @@ if __name__=='__main__':
 
     args = parser.parse_args()
     print(args)
-    import ipdb; ipdb.set_trace()
     main(args.tract, args.patch, filters=args.filter, 
          outfile=args.outfile, database=args.database, 
          batch=args.batch_type, cores=args.cores)
