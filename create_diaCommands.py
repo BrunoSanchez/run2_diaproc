@@ -39,8 +39,8 @@ def main(tract, patch, filters='griz',
          outfile='driver_commands/diaCommands.sh', 
          database=database, batch='smp', cores=4):
     conn = sqlite3.connect(database)
-    c = conn.cursor()
-    visitab = pd.read_sql_query(query.format(tract, str(patch)), conn)
+    #c = conn.cursor()
+    visitab = pd.read_sql_query(query_tmpl.format(tract, str(patch)), conn)
     commands = []
     for filtr, visits in visitab.groupby('filter'):
         if filtr in list(filters):
