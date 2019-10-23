@@ -28,8 +28,6 @@ import pandas as pd
 
 dia_repo_parent = '/global/cscratch1/sd/bos0109/test_imdiff_run2/deepDiff/'
 
-templ = 'v*'
-
 dia_repo = "/global/cscratch1/sd/bos0109/test_imdiff_run2/rerun/multiband"
 
 cmd_tmpl = "time nice -n 10 forcedPhotCcdDiaDriver.py {} --rerun forcedPhot "
@@ -37,9 +35,11 @@ cmd_tmpl +=" --id visit={} --cores {} --batch-type={} "
 cmd_tmpl +="--batch-options='-C knl -q regular'"
 
 def main(dia_repo=dia_repo, dia_parent=dia_repo_parent, 
-         outfile='forcedPhotDiaCommands.sh', cores=4, batch_type='smp'):
+         outfile='forcedPhotDiaCommands.sh', 
+         cores=4, batch_type='smp'):
     visits_str = ''
-    for adir in glob(dia_repo_parent+templ):
+    #file_prefix_templ = 'v*'
+    for adir in glob(dia_repo_parent+'v*'):
         slimdir = adir.split('/')[-1]
         visitn = slimdir[1:-3]
         print(slimdir, visitn)

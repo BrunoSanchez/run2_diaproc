@@ -9,19 +9,15 @@ module unload craype
 export CC=gcc
 source /cvmfs/sw.lsst.eu/linux-x86_64/lsst_distrib/w_2019_19/loadLSST.bash
 setup lsst_distrib
-
-cd dia_pipe
-scons
-cd ..
-
+#cd dia_pipe
+#scons
+#cd ..
 setup -jr dia_pipe/
-
-git clone https://github.com/lsst/obs_lsst.git
-cd obs_lsst/
-git checkout w.2019.19_diff
-scons
-cd ..
+#git clone https://github.com/lsst/obs_lsst.git
+#cd obs_lsst/
+#git checkout w.2019.19_diff
+#scons
+#cd ..
 setup -jr obs_lsst/
-
 export HDF5_USE_FILE_LOCKING=FALSE
 export OMP_NUM_THREADS=1
