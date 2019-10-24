@@ -6,7 +6,9 @@ The scripts provided work as a _cli_, and they would ingest a tract and a patch 
 Several options are available, but the user needs to specify the following information:
 * `database`: the `tracts_mapping.sqlite3` SQLite database for tract/patch selection
 * `calexp_repo`: the `calexp` butler repository, so we can use the images there to produce template coadds.
-* 
+* `tract, patch`
+* Depending on the step of the analysis you will need to set the `templ` or template repo, and the `dia_repo`
+
 
 ## Steps to carry the analysis
 
