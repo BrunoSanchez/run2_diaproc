@@ -17,7 +17,7 @@ Several options are available, but the user needs to specify the following infor
     - Obtain the list of visits and filters for this patch
     - Configure the `coaddDriver.py`
     - Run the `coaddDriver.py`
-    - Run the `multiBandDriver.py`
+    - Run the `multiBandDriver.py` on the coadd repo
 * Run the DIA pipeline
     - Configure the chosen DIA algorithm 
     - Run `imageDifferenceDriver.py`
@@ -28,4 +28,4 @@ Several options are available, but the user needs to specify the following infor
     - Obtain a matching in space-time between the `DIAObjects` and truth catalogs
     - Obtain metric figures quantifying the completitude-contamination 
     - Measure selection functions
-    - Beyond... 
+    - Etc.
