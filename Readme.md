@@ -1,4 +1,12 @@
 # Run2 DIA process 
+This repo contains several aids for script creation, that make use of the _drivers_ available in `dia_pipe` repo.  
+The intention is to have a guide so anyone can build template images from calexps, and after that perform DIA analysis.  
+The scripts provided work as a _cli_, and they would ingest a tract and a patch numbers, and produce _shell_ files with the commands so the user can run this at NERSC.
+
+Several options are available, but the user needs to specify the following information:
+* `database`: the `tracts_mapping.sqlite3` SQLite database for tract/patch selection
+* `calexp_repo`: the `calexp` butler repository, so we can use the images there to produce template coadds.
+* 
 
 ## Steps to carry the analysis
 
