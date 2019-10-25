@@ -16,15 +16,16 @@ import lsst.afw.image as afwImage
 import lsst.afw.display as afwDisplay
 import lsst.afw.cameraGeom as cameraGeom
 
-# The lsst_sims code issues some ignorable warnings regarding ids used for querying the object
-# databases.
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore")
-    import lsst.sims.coordUtils
-    from lsst.sims.catUtils.utils import ObservationMetaDataGenerator
-    from lsst.sims.utils import getRotSkyPos
+
+# # The lsst_sims code issues some ignorable warnings regarding ids used for querying the object
+# # databases.
+# with warnings.catch_warnings():
+#     warnings.simplefilter("ignore")
+#     import lsst.sims.coordUtils
+#     from lsst.sims.catUtils.utils import ObservationMetaDataGenerator
+#     from lsst.sims.utils import getRotSkyPos
     
-from desc_dc2_dm_data import REPOS
+# from desc_dc2_dm_data import REPOS
 
 from astropy.visualization import ZScaleInterval
 zscale = ZScaleInterval()
