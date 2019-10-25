@@ -16,6 +16,7 @@ import lsst.afw.image as afwImage
 import lsst.afw.display as afwDisplay
 import lsst.afw.cameraGeom as cameraGeom
 
+
 # # The lsst_sims code issues some ignorable warnings regarding ids used for querying the object
 # # databases.
 # with warnings.catch_warnings():
