@@ -12,12 +12,12 @@ setup lsst_distrib
 #cd dia_pipe
 #scons
 #cd ..
-setup -jr dia_pipe/
+setup -jr $HOME/dia_pipe/
 #git clone https://github.com/lsst/obs_lsst.git
 #cd obs_lsst/
 #git checkout w.2019.19_diff
 #scons
 #cd ..
-setup -jr obs_lsst/
+setup -jr $HOME/obs_lsst/
 export HDF5_USE_FILE_LOCKING=FALSE
 export OMP_NUM_THREADS=1
