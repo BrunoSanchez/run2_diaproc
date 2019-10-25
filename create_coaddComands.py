@@ -34,9 +34,9 @@ config_path = "$HOME/run2_diaproc/coadd_config_example.py"
 cmd_tmpl = "nice -n 10 coaddDriver.py {} --output {} --configfile {} "
 cmd_tmpl+= "--id tract={} patch={},{} filter={} --selectId visit={} "
 cmd_tmpl+= "--job {}  --cores {} --time 600  --batch-type={} "
-cmd_tmpl+= "#  --batch-verbose  --batch-stats "
-cmd_tmpl+= "--batch-options='-C knl -q regular' --mpiexec='-bind-to socket' "
-cmd_tmpl+= "  --clobber-output --dry-run"
+cmd_opt_slrm = "  --batch-verbose  --batch-stats "
+cmd_opt_slrm+= "--batch-options='-C knl -q regular' --mpiexec='-bind-to socket' "
+cmd_opt_slrm+= "#  --clobber-output"
 
 def main(tract, patch, calexp_repo=calexp_repo,
          output_repo=output_repo, config_path=config_path, 
@@ -57,6 +57,8 @@ def main(tract, patch, calexp_repo=calexp_repo,
         cmd = cmd_tmpl.format(calexp_repo, output_repo, config_path,
             tract, patchx, patchy, filtr, visitstr[:-1], job_name, 
             cores, batch)
+        if batch=='slurm':
+            cmd+=cmd_opt_slrm
         commands.append(cmd)
     outfile = 'driver_commands/coaddCommands_t{}_p{}{}.sh'.format(
         tract, patchx, patchy)
