@@ -30,6 +30,7 @@ def main(ramax=58, ramin=56, decmin=-32, decmax=-31, t0=59215, tm=59945):
         sub = Y[Y['filter']==afilter] 
         print(afilter, sub[['airmass', 'FWHMeff', 'fiveSigmaDepth']].describe())
         print('\n')
+    Y.to_csv('./catalogs+tables/visits_from_minion.csv')
 
 
 if __name__=='__main__':
