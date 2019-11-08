@@ -9,7 +9,8 @@ config.select.maxMJD = 59945.0  # jan 1 2023
 #config.select.maxMJD = 61041.0  # jan 1 2026
 #config.select.maxMJD = 61406.0  # jan 1 2026
 
-config.select.minPsfFwhm = 2.5
-config.select.maxPsfFwhm = 5.0
+# scale plate should be 0.2 arcsecs/px
+config.select.minPsfFwhm = 2.5  # = 0.5 arcsecs
+config.select.maxPsfFwhm = 5.0  # = 1.0 arcsecs
 
 

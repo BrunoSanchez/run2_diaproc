@@ -28,22 +28,26 @@ import pandas as pd
 database = '/global/cscratch1/sd/desc/DC2/data/Run2.1i/rerun/calexp-v1/tracts_mapping.sqlite3'
 query_tmpl = "select DISTINCT(visit), filter from overlaps WHERE tract={} and patch={} order by visit"
 calexp_repo = "/global/cscratch1/sd/bos0109/run2.1i_softln/rerun/calexp-v1"
-output_repo = "$SCRATCH/templates_004"
+output_repo = "$SCRATCH/templates_005"
 config_path = "$HOME/run2_diaproc/coadd_config_example.py"
 
 cmd_tmpl = "nice -n 10 coaddDriver.py {} --output {} --configfile {} "
 cmd_tmpl+= "--id tract={} patch={},{} filter={} --selectId visit={} "
-cmd_tmpl+= "--job {}  --cores {} --time 600  --batch-type={} "
+cmd_tmpl+= "--job {}  --cores {} --time {}  --batch-type={} "
 cmd_opt_slrm = "  --batch-verbose  --batch-stats "
-cmd_opt_slrm+= "--batch-options='-C knl -q regular' --mpiexec='-bind-to socket' "
-cmd_opt_slrm+= "#  --clobber-output"
+cmd_opt_slrm+= "--mpiexec='-bind-to socket' "
+slrm_hasw = "--batch-options='-C haswell -q shared' "
+slrm_knl = "--batch-options='-C knl -q regular' "
+# cmd_opt_slrm+= "#  --clobber-output"
+
+
 
 def main(tract, patch, calexp_repo=calexp_repo,
          output_repo=output_repo, config_path=config_path, 
-         database=database, cores=4, batch='smp'):
+         database=database, cores=4, batch='smp', queue_knl=False):
     conn = sqlite3.connect(database)
     c = conn.cursor()
-    patchx, _, patchy = patch 
+    patchx, patchy = patch 
     strpatch = "'"+str((int(patchx), int(patchy)))+"'"
     query = query_tmpl.format(tract, strpatch)
     visitab = pd.read_sql_query(query, conn)
@@ -53,12 +57,17 @@ def main(tract, patch, calexp_repo=calexp_repo,
         visitstr = ''
         for avisit in visits.visit:
             visitstr+=str(avisit)+'^'
-        job_name = 'coadd_t{}_p{}{}'.format(tract, patchx, patchy)
+        time_per_visit = int(600*cores/len(visits.visit))
+        job_name = 'coadd_t{}_p{}{}_{}'.format(tract, patchx, patchy, filtr)
         cmd = cmd_tmpl.format(calexp_repo, output_repo, config_path,
             tract, patchx, patchy, filtr, visitstr[:-1], job_name, 
-            cores, batch)
+            cores, time_per_visit, batch)
         if batch=='slurm':
             cmd+=cmd_opt_slrm
+            if queue_knl:
+                cmd+=slrm_knl
+            else:
+                cmd+=slrm_hasw
         commands.append(cmd)
     outfile = 'driver_commands/coaddCommands_t{}_p{}{}.sh'.format(
         tract, patchx, patchy)
