@@ -6,3 +6,5 @@
 *.fits
 *.log
 *.ipynb_checkpoints*
+
+driver_commands/*.sh

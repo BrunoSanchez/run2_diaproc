@@ -36,7 +36,7 @@ def main(ramax=58, ramin=56, decmin=-32, decmax=-31, t0=59215, tm=61406):
     query = query_tmpl.format(ramin, ramax, decmin, decmax)
 
     sntab = pd.read_sql_query(query, conn)
-    sntab.to_csv('./catalogs+tables/sn_cat_rectangle.csv')
+    #sntab.to_csv('./catalogs+tables/sn_cat_rectangle.csv')
 
     if os.path.isfile('./catalogs+tables/full_t_visits_from_minion.csv'):
         visitab = pd.read_csv('./catalogs+tables/full_t_visits_from_minion.csv')
@@ -62,21 +62,29 @@ def main(ramax=58, ramin=56, decmin=-32, decmax=-31, t0=59215, tm=61406):
     
     times = visitab['expMJD']
     bands = visitab['filter']
+    depths= visitab['fiveSigmaDepth']
     #colnames = ['mjd', 'filter']
     data_cols = {'mjd': times, 'filter': bands}
     for i_sn, asn in sntab.iterrows():
         sn_mod = SNObject(ra=asn.snra_in, dec=asn.sndec_in)
-        sn_mod.set(z=asn.z_in, t0=asn.t0_in, 
-                   x1=asn.x1_in, c=asn.c_in, x0=asn.x0_in)
-        sn_flxs = [sn_mod.catsimBandFlux(bandpassobject=LSST_BandPass[filt], time=mjd)
-                   for mjd, filt in zip(times, bands)]
-        data_cols[asn.snid_in] = sn_flxs
+        sn_mod.set(z=asn.z_in, t0=asn.t0_in, x1=asn.x1_in, c=asn.c_in, x0=asn.x0_in)
+        sn_flxs = [sn_mod.catsimBandFlux(mjd, LSST_BandPass[filt]) for mjd, filt in zip(times, bands)]  # done
+        sn_mags = [sn_mod.catsimBandMag(LSST_BandPass[filt], mjd, flx) for mjd, filt, flx in zip(times, bands, sn_flxs)]
+        sn_flxe = [sn_mod.catsimBandFluxError(mjd, LSST_BandPass[filt], m5, flx) for mjd, filt, m5, flx in zip(times, bands, depths, sn_flxs)]
+        sn_mage = [sn_mod.catsimBandMagError(mjd, LSST_BandPass[filt], m5, magnitude=mag) for mjd, filt, m5, mag in zip(times, bands, depths, sn_mags)]
+        data_cols[asn.snid_in+'_flux'] = sn_flxs
+        data_cols[asn.snid_in+'_fluxErr'] = sn_flxe
+        data_cols[asn.snid_in+'_mag'] = sn_mags
+        data_cols[asn.snid_in+'_magErr'] = sn_mage
         #colnames.append(asn.snid_in)
-
     # dat = {}
     # for aname, adata in zip(colnames, data_cols): 
     #     dat[aname] = adata 
-    # lightcurves = pd.DataFrame(dat)
+    lightcurves = pd.DataFrame(data_cols)
+    dest_lc = './lightcurves/lightcurves_cat_rect_{}_{}_{}_{}.csv'
+    lightcurves.to_csv(dest_lc.format(ramax, ramin, decmax, decmin))
+    dest_snfile = './catalogs+tables/supernovae_cat_rect_{}_{}_{}_{}.csv'
+    sntab.to_csv(dest_snfile.format(ramax, ramin, decmax, decmin))
 
     # plt.scatter(sntab.snra_in, sntab.sndec_in, s=20/sntab.z_in, c=sntab.z_in, cmap='RdBu_r')
     # clb = plt.colorbar()
@@ -106,5 +114,3 @@ def main(ramax=58, ramin=56, decmin=-32, decmax=-31, t0=59215, tm=61406):
     # plt.xlabel(r'Color')
     # plt.show()
 
-    dest_file = './catalogs+tables/supernovae_cat_rect_{}_{}_{}_{}.csv'
-    sntab.to_csv(dest_file.format(ramax, ramin, decmax, decmin))

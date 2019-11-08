@@ -44,7 +44,7 @@ tpatches = skymap.findTractPatchList(rect)
 
 # to figure the visits on this patches we need the DB  
 # this will help us dtermine seeing and time cuts for coadds
-database = '/global/cscratch1/sd/desc/DC2/data/Run2.1i/rerun/calexp-v1/tracts_mapping.sqlite3'
+database = repo+'/tracts_mapping.sqlite3'
 query_tmpl = "select DISTINCT(visit), filter from overlaps WHERE tract={} and patch={} order by visit"
 conn = sqlite3.connect(database)
 c = conn.cursor()

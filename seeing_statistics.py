@@ -46,8 +46,8 @@ if __name__=='__main__':
 
     parser.add_argument('--ramax', type=float, help='RA max [deg]')
     parser.add_argument('--ramin', type=float, help='RA min [deg]')
-    parser.add_argument('--demax', type=float, help='Dec max [deg]')
-    parser.add_argument('--demin', type=float, help='Dec min [deg]')
+    parser.add_argument('--decmax', type=float, help='Dec max [deg]')
+    parser.add_argument('--decmin', type=float, help='Dec min [deg]')
     parser.add_argument('--t0', type=float, help='Minimum time [MJD]', 
                         default=59215)
     parser.add_argument('--tm', type=float, help='Maximum time [MJD]',
@@ -56,5 +56,5 @@ if __name__=='__main__':
     args = parser.parse_args()
 
     main(ramax=args.ramax, ramin=args.ramin, 
-         decmin=args.demin, decmax=args.demax, 
+         decmin=args.decmin, decmax=args.decmax, 
          t0=args.t0, tm=args.tm)

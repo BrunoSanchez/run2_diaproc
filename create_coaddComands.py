@@ -29,9 +29,10 @@ database = '/global/cscratch1/sd/desc/DC2/data/Run2.1i/rerun/calexp-v1/tracts_ma
 query_tmpl = "select DISTINCT(visit), filter from overlaps WHERE tract={} and patch={} order by visit"
 calexp_repo = "/global/cscratch1/sd/bos0109/run2.1i_softln/rerun/calexp-v1"
 output_repo = "$SCRATCH/templates_005"
-config_path = "$HOME/run2_diaproc/coadd_config_example.py"
+config_path = "$HOME/run2_diaproc/config/coadd_config_example.py"
 
-cmd_tmpl = "nice -n 10 coaddDriver.py {} --output {} --configfile {} "
+nice = "nice -n 10 "
+cmd_tmpl = "coaddDriver.py {} --output {} --configfile {} "
 cmd_tmpl+= "--id tract={} patch={},{} filter={} --selectId visit={} "
 cmd_tmpl+= "--job {}  --cores {} --time {}  --batch-type={} "
 cmd_opt_slrm = "  --batch-verbose  --batch-stats "
@@ -57,7 +58,7 @@ def main(tract, patch, calexp_repo=calexp_repo,
         visitstr = ''
         for avisit in visits.visit:
             visitstr+=str(avisit)+'^'
-        time_per_visit = int(600*cores/len(visits.visit))
+        time_per_visit = int(500*cores/len(visits.visit))
         job_name = 'coadd_t{}_p{}{}_{}'.format(tract, patchx, patchy, filtr)
         cmd = cmd_tmpl.format(calexp_repo, output_repo, config_path,
             tract, patchx, patchy, filtr, visitstr[:-1], job_name, 
@@ -68,6 +69,8 @@ def main(tract, patch, calexp_repo=calexp_repo,
                 cmd+=slrm_knl
             else:
                 cmd+=slrm_hasw
+        else: 
+            cmd = nice + cmd
         commands.append(cmd)
     outfile = 'driver_commands/coaddCommands_t{}_p{}{}.sh'.format(
         tract, patchx, patchy)

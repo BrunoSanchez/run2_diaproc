@@ -31,7 +31,7 @@ database = '/global/cscratch1/sd/desc/DC2/data/Run2.1i/rerun/calexp-v1/tracts_ma
 query_tmpl = "select DISTINCT(visit), filter from overlaps WHERE tract={} and patch={} order by visit"
 tmpl_repo = '/global/cscratch1/sd/bos0109/templates_003/rerun/multiband'
 output_repo = '/global/cscratch1/sd/bos0109/test_imdiff_run2'
-config_path = 'imageDifferenceDriver_config.py'
+config_path = './config/imageDifferenceDriver_config.py'
 
 cmd_tmpl = "time nice -n 10 imageDifferenceDriver.py  {} --output {} "
 cmd_tmpl +="--id visit={} -C {} --batch-type={} --mpiexec='-bind-to socket' " 
