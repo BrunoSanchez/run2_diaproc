@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-#  obtain_visits.py
+#  create_coaddCommands.py
 #  
 #  Copyright 2019 bruno <bruno.sanchez@duke.edu>
 #  

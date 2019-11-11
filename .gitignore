@@ -6,5 +6,6 @@
 *.fits
 *.log
 *.ipynb_checkpoints*
-
+logs_and_outputs/*
 driver_commands/*.sh
+*.log
