@@ -53,8 +53,9 @@ def main(tract, patch, filters=('g', 'r', 'i', 'z'),
     job_name = 'mband_t{}_p{}{}'.format(tract, patchx, patchy)
     if cores is None: cores = len(filters)
     cmd = cmd_tmpl.format(repo, rerun, tract, patchx, patchy, 
-                            filtrstr, config_path, job_name, 
+                            fltrstr, config_path, job_name, 
                             cores, time, batch)
+    
     if batch=='slurm':
         cmd+=cmd_opt_slrm
         if queue_knl:
@@ -66,10 +67,10 @@ def main(tract, patch, filters=('g', 'r', 'i', 'z'),
     
     if outfile is not None:
         if isinstance(outfile, str):
-            with open(outfile, 'a') as cf:
+            with open(outfile, 'a+') as cf:
                 cf.write(cmd)
                 cf.write('\n\n')
-        print("Wrote multiband command to {}".format(outfile))
+            print("Wrote multiband command to {}".format(outfile))
         else:
             try:
                 outfile.write(cmd)
