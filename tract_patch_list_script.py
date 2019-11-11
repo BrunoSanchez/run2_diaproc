@@ -50,6 +50,7 @@ import matplotlib.patches as patches
 
 import create_coaddComands as ccoadd 
 import create_multiBandCommands as multib
+import create_diaCommands as cdia
 
 repo = '/global/cscratch1/sd/desc/DC2/data/Run2.1i/rerun/calexp-v1' 
 b = Butler(repo)
@@ -93,10 +94,18 @@ for atract in tpatches:
                        queue_knl=True)
             
             multib.main(atract[0].getId(), apatch.getIndex(), 
-                        filters=('u', 'g', 'r', 'i', 'z'),
+                        filters='ugriz',
                         repo="$SCRATCH/templates_rect", 
                         rerun='multiband', batch='slurm', queue_knl=True,
                         outfile='./driver_commands/coadd_multiband_coadd.sh')
+            diaOutfile = 'driver_commands/diaCommands_t{}_p{}{}.sh'.format(
+                atract[0].getId(), patchx, patchy)
+            cdia.main(atract[0].getId(), apatch.getIndex(), filters='ugriz', 
+                      outfile=diaOutfile, batch='slurm', cores=4, 
+                      tmpl_repo="$SCRATCH/templates_rect", 
+                      output_repo="$SCRATCH/diff_rect", queue_knl=True,
+                      config_path="./config/imageDifferenceDriver_config.py")
+
             
             
             

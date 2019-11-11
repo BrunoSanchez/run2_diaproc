@@ -33,19 +33,24 @@ tmpl_repo = '/global/cscratch1/sd/bos0109/templates_003/rerun/multiband'
 output_repo = '/global/cscratch1/sd/bos0109/test_imdiff_run2'
 config_path = './config/imageDifferenceDriver_config.py'
 
-cmd_tmpl = "time nice -n 10 imageDifferenceDriver.py  {} --output {} "
-cmd_tmpl +="--id visit={} -C {} --batch-type={} --mpiexec='-bind-to socket' " 
-cmd_tmpl +="--cores {} --job imdiff_v{}_f{} --time 500 "
-cmd_tmpl +="--batch-options='-C knl -q regular'"
+nice = "time nice -n 10 "
+cmd_tmpl = "imageDifferenceDriver.py  {} --output {} "
+cmd_tmpl +="--id visit={} -C {} --batch-type={} " 
+cmd_tmpl +="--cores {} --job imdiff_v{}_f{} --time {} "
+cmd_opt_slrm = "  --batch-verbose  --batch-stats "
+cmd_opt_slrm+= "--mpiexec='-bind-to socket' "
+slrm_hasw = "--batch-options='-C haswell -q shared' "
+slrm_knl = "--batch-options='-C knl -q regular' "
 
 
 def main(tract, patch, filters='griz', outfile='driver_commands/diaCommands.sh', 
          database=database, batch='smp', cores=4, tmpl_repo=tmpl_repo, 
-         output_repo=output_repo, config_path=config_path):
+         output_repo=output_repo, config_path=config_path, 
+         queue_knl=False, timepvisit=100):
 
     conn = sqlite3.connect(database)
     #c = conn.cursor()
-    patchx, _, patchy = patch 
+    patchx, patchy = patch 
     strpatch = "'"+str((int(patchx), int(patchy)))+"'"
     query = query_tmpl.format(tract, strpatch)
     visitab = pd.read_sql_query(query, conn)
@@ -53,10 +58,19 @@ def main(tract, patch, filters='griz', outfile='driver_commands/diaCommands.sh',
     commands = []
     for filtr, visits in visitab.groupby('filter'):
         if filtr in list(filters):
-            print(filtr, visits.visit)
+            #print(filtr, visits.visit)
             for avisit in visits.visit:
                 cmd = cmd_tmpl.format(tmpl_repo, output_repo, 
-                    avisit, config_path, batch, cores, avisit, filtr)
+                    avisit, config_path, batch, cores, avisit, 
+                    filtr, timepvisit)
+                if batch=='slurm':
+                    cmd+=cmd_opt_slrm
+                    if queue_knl:
+                        cmd+=slrm_knl
+                    else:
+                        cmd+=slrm_hasw
+                else: 
+                    cmd = nice + cmd
                 commands.append(cmd)
 
     with open(outfile, 'w') as cf:
@@ -95,8 +109,14 @@ if __name__=='__main__':
                         help='Repository where differences are going to be located')
     parser.add_argument('-C', '--conf', metavar='C', type=str, default=config_path, 
                         help='Path of configuration file')
+    parser.add_argument('-tm', '--time', metavar='tm', type=int, 
+                        default=120, help='time of execution per visit')
+    parser.add_argument('-q', '--queue', metavar='q', default=False, 
+                        help='True: knl -q regular; False: haswell -q shared')
+                        
     args = parser.parse_args()
 
     main(args.tract, args.patch, filters=args.filter, outfile=args.outfile, 
          database=args.database, batch=args.batch_type, cores=args.cores, 
-         tmpl_repo=args.tmpl, output_repo=args.diff, config_path=args.conf)
+         tmpl_repo=args.tmpl, output_repo=args.diff, config_path=args.conf, 
+         queue_knl=args.queue, timepvisit=args.tm)

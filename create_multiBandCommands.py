@@ -38,7 +38,7 @@ slrm_hasw = "--batch-options='-C haswell -q shared' "
 slrm_knl = "--batch-options='-C knl -q regular' "
 
 
-def main(tract, patch, filters=('g', 'r', 'i', 'z'),
+def main(tract, patch, filters='griz',
          repo=repo, rerun='multiband', config_path=config_path, 
          cores=None, time=4000, batch='smp', queue_knl=False, 
          outfile=None):
@@ -46,7 +46,7 @@ def main(tract, patch, filters=('g', 'r', 'i', 'z'),
     strpatch = "'"+str((int(patchx), int(patchy)))+"'"
 
     fltrstr = ''
-    for afiltr in filters:
+    for afiltr in list(filters):
         fltrstr+=afiltr+'^'
     fltrstr = fltrstr[:-1]
     
@@ -94,7 +94,7 @@ if __name__=='__main__':
     parser.add_argument('-p', '--patch', metavar='p', type=str, 
                         help='Patch code number')
     parser.add_argument('-f', '--filters', metavar='f', type=str, 
-                        dest='filters', default=['g'])
+                        dest='filters', default='griz')
     parser.add_argument('-c', '--cores', metavar='c', default=None, 
                         help='Number of cores')
     parser.add_argument('-tm', '--time', metavar='tm', default=3000, 
