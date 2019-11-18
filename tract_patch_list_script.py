@@ -103,7 +103,7 @@ for atract in tpatches:
             cdia.main(atract[0].getId(), apatch.getIndex(), filters='ugriz', 
                       outfile=diaOutfile, batch='slurm', cores=4, 
                       tmpl_repo="$SCRATCH/templates_rect", 
-                      output_repo="$SCRATCH/diff_rect", queue_knl=True,
+                      rerun="diff_rect", queue_knl=False,
                       config_path="./config/imageDifferenceDriver_config.py")
 
             

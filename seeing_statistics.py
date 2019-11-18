@@ -16,6 +16,7 @@ def main(ramax=58, ramin=56, decmin=-32, decmax=-31, t0=59215, tm=59945):
 
     parsed = [Odict(obsmd.summary['OpsimMetaData']) for obsmd in res \
                 if obsmd.bandpass in ("g", "r", "i", "z", "y")]
+    
     df = pd.DataFrame(parsed)
     X = df[['obsHistID', 'filter', 'FWHMeff', 'descDitheredRA', 
             'descDitheredDec', 'airmass', 'fiveSigmaDepth', 'expMJD']].copy()

@@ -2,7 +2,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-#  create_diaCommands.py
+# create_forcedPhotCommands.py
 #  
 #  Copyright 2019 bruno <bruno.sanchez@duke.edu>
 #  

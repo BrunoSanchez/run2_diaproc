@@ -45,11 +45,20 @@ def main(ramax=58, ramin=56, decmin=-32, decmax=-31, t0=59215, tm=61406):
                                             fieldRA=(ramin-3, ramax+3), 
                                             fieldDec=(decmin-3, decmax+3), 
                                             expMJD=(t0, tm))
-        parsed = [Odict(obsmd.summary['OpsimMetaData']) for obsmd in res \
-            if obsmd.bandpass in ("g", "r", "i", "z", "y")]
+        parsed = [Odict(obsmd.summary['OpsimMetaData']) for obsmd in res]
+
+        for ap, obsmd in zip(parsed, res):
+            ap['pointingRA'] = obsmd.pointingRA
+            ap['pointingDec'] = obsmd.pointingDec
+            ap['Opsim_rotSkyPos'] = ap['rotSkyPos']
+            ap['rotSkyPos'] = obsmd.rotSkyPos
+
         df = pd.DataFrame(parsed)
+        df = df[df['filter'].isin(('g', 'r', 'i', 'z', 'y'))]
+
         X = df[['obsHistID', 'filter', 'FWHMeff', 'descDitheredRA', 
-                'descDitheredDec', 'airmass', 'fiveSigmaDepth', 'expMJD']].copy()
+                'descDitheredDec', 'airmass', 'fiveSigmaDepth', 'expMJD',
+                'pointingRA', 'pointingDec', 'rotSkyPos']].copy()
         X.descDitheredRA = np.degrees(X.descDitheredRA)
         X.descDitheredDec = np.degrees(X.descDitheredDec)
         X['d1'] = angularSeparation(ramin, decmax, X.descDitheredRA.values, X.descDitheredDec.values)

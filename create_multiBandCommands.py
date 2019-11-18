@@ -40,7 +40,7 @@ slrm_knl = "--batch-options='-C knl -q regular' "
 
 def main(tract, patch, filters='griz',
          repo=repo, rerun='multiband', config_path=config_path, 
-         cores=None, time=4000, batch='smp', queue_knl=False, 
+         cores=None, time=140000, batch='smp', queue_knl=False, 
          outfile=None):
     patchx, patchy = patch 
     strpatch = "'"+str((int(patchx), int(patchy)))+"'"

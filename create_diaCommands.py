@@ -30,11 +30,11 @@ import pandas as pd
 database = '/global/cscratch1/sd/desc/DC2/data/Run2.1i/rerun/calexp-v1/tracts_mapping.sqlite3'
 query_tmpl = "select DISTINCT(visit), filter from overlaps WHERE tract={} and patch={} order by visit"
 tmpl_repo = '/global/cscratch1/sd/bos0109/templates_003/rerun/multiband'
-output_repo = '/global/cscratch1/sd/bos0109/test_imdiff_run2'
+rerun = 'test_imdiff_run2'
 config_path = './config/imageDifferenceDriver_config.py'
 
 nice = "time nice -n 10 "
-cmd_tmpl = "imageDifferenceDriver.py  {} --output {} "
+cmd_tmpl = "imageDifferenceDriver.py  {} --rerun {} "
 cmd_tmpl +="--id visit={} -C {} --batch-type={} " 
 cmd_tmpl +="--cores {} --job imdiff_v{}_f{} --time {} "
 cmd_opt_slrm = "  --batch-verbose  --batch-stats "
@@ -45,7 +45,7 @@ slrm_knl = "--batch-options='-C knl -q regular' "
 
 def main(tract, patch, filters='griz', outfile='driver_commands/diaCommands.sh', 
          database=database, batch='smp', cores=4, tmpl_repo=tmpl_repo, 
-         output_repo=output_repo, config_path=config_path, 
+         rerun=rerun, config_path=config_path, 
          queue_knl=False, timepvisit=100):
 
     conn = sqlite3.connect(database)
@@ -60,7 +60,7 @@ def main(tract, patch, filters='griz', outfile='driver_commands/diaCommands.sh',
         if filtr in list(filters):
             #print(filtr, visits.visit)
             for avisit in visits.visit:
-                cmd = cmd_tmpl.format(tmpl_repo, output_repo, 
+                cmd = cmd_tmpl.format(tmpl_repo, rerun, 
                     avisit, config_path, batch, cores, avisit, 
                     filtr, timepvisit)
                 if batch=='slurm':
@@ -105,7 +105,7 @@ if __name__=='__main__':
                         default='smp', help='slurm or smp batch processing')
     parser.add_argument('-r', '--tmpl', metavar='R', type=str, default=tmpl_repo, 
                         help='Repository where templates are located')
-    parser.add_argument('-d', '--diff', metavar='D', type=str, default=output_repo, 
+    parser.add_argument('-d', '--rerun', metavar='re', type=str, default=rerun, 
                         help='Repository where differences are going to be located')
     parser.add_argument('-C', '--conf', metavar='C', type=str, default=config_path, 
                         help='Path of configuration file')
@@ -118,5 +118,5 @@ if __name__=='__main__':
 
     main(args.tract, args.patch, filters=args.filter, outfile=args.outfile, 
          database=args.database, batch=args.batch_type, cores=args.cores, 
-         tmpl_repo=args.tmpl, output_repo=args.diff, config_path=args.conf, 
+         tmpl_repo=args.tmpl, rerun=args.rerun, config_path=args.conf, 
          queue_knl=args.queue, timepvisit=args.tm)
