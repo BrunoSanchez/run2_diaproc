@@ -43,37 +43,55 @@ slrm_hasw = "--batch-options='-C haswell -q shared' "
 slrm_knl = "--batch-options='-C knl -q regular' "
 
 
-def main(tract, patch, filters='griz', outfile='driver_commands/diaCommands.sh', 
-         database=database, batch='smp', cores=4, tmpl_repo=tmpl_repo, 
-         rerun=rerun, config_path=config_path, 
-         queue_knl=False, timepvisit=300):
+def main(tract=None, patch=None, filters='griz', visit=None,
+        outfile='driver_commands/diaCommands.sh', 
+        database=database, batch='smp', cores=4, tmpl_repo=tmpl_repo, 
+        rerun=rerun, config_path=config_path, 
+        queue_knl=False, timepvisit=300):
 
-    conn = sqlite3.connect(database)
-    #c = conn.cursor()
-    patchx, patchy = patch 
-    strpatch = "'"+str((int(patchx), int(patchy)))+"'"
-    query = query_tmpl.format(tract, strpatch)
-    visitab = pd.read_sql_query(query, conn)
+    if tract is not None and patch is not None:
+        conn = sqlite3.connect(database)
+        #c = conn.cursor()
+        patchx, patchy = patch 
+        strpatch = "'"+str((int(patchx), int(patchy)))+"'"
+        query = query_tmpl.format(tract, strpatch)
+        visitab = pd.read_sql_query(query, conn)
 
-    commands = []
-    for filtr, visits in visitab.groupby('filter'):
-        if filtr in list(filters):
-            #print(filtr, visits.visit)
-            for avisit in visits.visit:
-                cmd = cmd_tmpl.format(tmpl_repo, rerun, 
-                    avisit, config_path, batch, cores, avisit, 
-                    filtr, timepvisit)
-                if batch=='slurm':
-                    cmd+=cmd_opt_slrm
-                    if queue_knl:
-                        cmd+=slrm_knl
-                    else:
-                        cmd+=slrm_hasw
-                else: 
-                    cmd = nice + cmd
-                commands.append(cmd)
-
-    with open(outfile, 'w') as cf:
+        commands = []
+        for filtr, visits in visitab.groupby('filter'):
+            if filtr in list(filters):
+                #print(filtr, visits.visit)
+                for avisit in visits.visit:
+                    cmd = cmd_tmpl.format(tmpl_repo, rerun, 
+                        avisit, config_path, batch, cores, avisit, 
+                        filtr, timepvisit)
+                    if batch=='slurm':
+                        cmd+=cmd_opt_slrm
+                        if queue_knl:
+                            cmd+=slrm_knl
+                        else:
+                            cmd+=slrm_hasw
+                    else: 
+                        cmd = nice + cmd
+                    commands.append(cmd)
+    elif visit is not None:
+        cmd = cmd_tmpl.format(tmpl_repo, rerun, visit, config_path, 
+                              batch, cores, avisit, filters, timepvisit)
+        if batch=='slurm':
+            cmd+=cmd_opt_slrm
+            if queue_knl:
+                cmd+=slrm_knl
+            else:
+                cmd+=slrm_hasw
+        else: 
+            cmd = nice + cmd
+        commands = [cmd]
+    
+    else:
+        print('Need visit number or tract+patch!!')
+        return
+        
+    with open(outfile, 'a+') as cf:
         for acmd in commands:
             cf.write(acmd)
             cf.write('\n \n')
@@ -87,12 +105,14 @@ if __name__=='__main__':
     DESC = "Creates commands for difference image driver in the dia_pipe context"
     EPIL = "This will produce a file output with the commands separated by one line"
     parser = argparse.ArgumentParser(description=DESC, epilog=EPIL)
-    parser.add_argument('-t', '--tract', metavar='t', type=int, 
+    parser.add_argument('-t', '--tract', metavar='t', default=None,
                         help='Tract number')
-    parser.add_argument('-p', '--patch', metavar='p', type=str, 
+    parser.add_argument('-p', '--patch', metavar='p', default=None,
                         help='Patch code number')
+    parser.add_argument('-v', '--visit', metavar='v', default=None, 
+                        help='Visit number')
     parser.add_argument('-f', '--filter', metavar='f', type=str, 
-                        help='Filter name', default='griz')
+                        help='Filter name(s)', default='griz')
     parser.add_argument('-o', '--outfile', metavar='o', type=str, 
                         help='Output filename with the commands', 
                         default='driver_commands/diaCommands.sh')
