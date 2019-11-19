@@ -46,7 +46,7 @@ slrm_knl = "--batch-options='-C knl -q regular' "
 def main(tract, patch, filters='griz', outfile='driver_commands/diaCommands.sh', 
          database=database, batch='smp', cores=4, tmpl_repo=tmpl_repo, 
          rerun=rerun, config_path=config_path, 
-         queue_knl=False, timepvisit=100):
+         queue_knl=False, timepvisit=300):
 
     conn = sqlite3.connect(database)
     #c = conn.cursor()
@@ -119,4 +119,4 @@ if __name__=='__main__':
     main(args.tract, args.patch, filters=args.filter, outfile=args.outfile, 
          database=args.database, batch=args.batch_type, cores=args.cores, 
          tmpl_repo=args.tmpl, rerun=args.rerun, config_path=args.conf, 
-         queue_knl=args.queue, timepvisit=args.tm)
+         queue_knl=args.queue, timepvisit=args.time)
