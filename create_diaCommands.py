@@ -48,7 +48,7 @@ def main(tract=None, patch=None, filters='griz', visit=None,
         database=database, batch='smp', cores=4, tmpl_repo=tmpl_repo, 
         rerun=rerun, config_path=config_path, 
         queue_knl=False, timepvisit=300):
-
+    commands = []
     if tract is not None and patch is not None:
         conn = sqlite3.connect(database)
         #c = conn.cursor()
@@ -57,7 +57,6 @@ def main(tract=None, patch=None, filters='griz', visit=None,
         query = query_tmpl.format(tract, strpatch)
         visitab = pd.read_sql_query(query, conn)
 
-        commands = []
         for filtr, visits in visitab.groupby('filter'):
             if filtr in list(filters):
                 #print(filtr, visits.visit)
@@ -75,18 +74,36 @@ def main(tract=None, patch=None, filters='griz', visit=None,
                         cmd = nice + cmd
                     commands.append(cmd)
     elif visit is not None:
-        cmd = cmd_tmpl.format(tmpl_repo, rerun, visit, config_path, 
-                              batch, cores, avisit, filters, timepvisit)
-        if batch=='slurm':
-            cmd+=cmd_opt_slrm
-            if queue_knl:
-                cmd+=slrm_knl
-            else:
-                cmd+=slrm_hasw
-        else: 
-            cmd = nice + cmd
-        commands = [cmd]
-    
+        if isinstance(visit, pd.DataFrame):
+            for filtr, visits in visit.groupby('filter'):
+                if filtr in list(filters):
+                    #print(filtr, visits.visit)
+                    for avisit in visits.visit:
+                        cmd = cmd_tmpl.format(tmpl_repo, rerun, 
+                            avisit, config_path, batch, cores, avisit, 
+                            filtr, timepvisit)
+                        if batch=='slurm':
+                            cmd+=cmd_opt_slrm
+                            if queue_knl:
+                                cmd+=slrm_knl
+                            else:
+                                cmd+=slrm_hasw
+                        else: 
+                            cmd = nice + cmd
+                        commands.append(cmd)
+        else:        
+            cmd = cmd_tmpl.format(tmpl_repo, rerun, visit, config_path, 
+                                batch, cores, avisit, filters, timepvisit)
+            if batch=='slurm':
+                cmd+=cmd_opt_slrm
+                if queue_knl:
+                    cmd+=slrm_knl
+                else:
+                    cmd+=slrm_hasw
+            else: 
+                cmd = nice + cmd
+            commands = [cmd]
+        
     else:
         print('Need visit number or tract+patch!!')
         return

@@ -51,6 +51,8 @@ import matplotlib.patches as patches
 import create_coaddComands as ccoadd 
 import create_multiBandCommands as multib
 import create_diaCommands as cdia
+import create_assocCommands  as cassoc
+import create_forcedPhotCommands as cfPhot 
 
 repo = '/global/cscratch1/sd/desc/DC2/data/Run2.1i/rerun/calexp-v1' 
 b = Butler(repo)
@@ -73,39 +75,56 @@ database = repo+'/tracts_mapping.sqlite3'
 query_tmpl = "select DISTINCT(visit), filter from overlaps WHERE tract={} and patch={} order by visit"
 conn = sqlite3.connect(database)
 c = conn.cursor()
-if os.path.exists('./driver_commands/coadd_multiband_coadd.sh'):
-    os.remove('./driver_commands/coadd_multiband_coadd.sh')
+
+#coaddOutfile = './driver_commands/coadd_multiband_coadd.sh'
+multibOutfile = './driver_commands/coadd_multiband_coadd.sh'
+diaOutfile = 'driver_commands/diaCommands_fullset.sh'
+assocOutfile = 'driver_commands/assocCommands_fullset.sh'
+forcedOutfile = 'driver_commands/forcedPhotCommands.sh'
+
+for acmdfile in [multibOutfile, diaOutfile, assocOutfile]:
+    if os.path.exists(acmdfile):
+        os.remove(acmdfile)
+
+full_visits = []
 # check the tracts+patch, print their names
 for atract in tpatches:
     print(atract[0])  # prints the number of the tract
-    for thepatches in atract[1:]:  # next things on list are the patches
-        for apatch in thepatches:
-            print(apatch)
-            # Now we have the list of tract+patch 
-            # let's find the visit list
-            patchx, patchy = apatch.getIndex()
-            strpatch = "'"+str((int(patchx), int(patchy)))+"'"
-            query = query_tmpl.format(atract[0].getId(), strpatch)
-            visitab = pd.read_sql_query(query, conn)
-            
-            ccoadd.main(atract[0].getId(), apatch.getIndex(), calexp_repo=repo,
-                       output_repo="$SCRATCH/templates_rect", 
-                       database=database, cores=4, batch='slurm', 
-                       queue_knl=True)
-            
-            multib.main(atract[0].getId(), apatch.getIndex(), 
-                        filters='ugriz',
-                        repo="$SCRATCH/templates_rect", 
-                        rerun='multiband', batch='slurm', queue_knl=True,
-                        outfile='./driver_commands/coadd_multiband_coadd.sh')
-            diaOutfile = 'driver_commands/diaCommands_t{}_p{}{}.sh'.format(
-                atract[0].getId(), patchx, patchy)
-            cdia.main(atract[0].getId(), apatch.getIndex(), filters='ugriz', 
-                      outfile=diaOutfile, batch='slurm', cores=4, 
-                      tmpl_repo="$SCRATCH/templates_rect", 
-                      rerun="diff_rect", queue_knl=False,
-                      config_path="./config/imageDifferenceDriver_config.py")
+    thepatches = atract[1]  # next things on list are the patches
+    for apatch in thepatches:
+        print(apatch)
+        # Now we have the list of tract+patch 
+        # let's find the visit list
+        patchx, patchy = apatch.getIndex()
+        strpatch = "'"+str((int(patchx), int(patchy)))+"'"
+        query = query_tmpl.format(atract[0].getId(), strpatch)
+        visitab = pd.read_sql_query(query, conn)
+        full_visits.append(visitab)
 
+        ccoadd.main(atract[0].getId(), apatch.getIndex(), calexp_repo=repo,
+                    output_repo="$SCRATCH/templates_rect", 
+                    database=database, cores=4, batch='slurm', 
+                    queue_knl=True)
+        
+        multib.main(atract[0].getId(), apatch.getIndex(), 
+                    filters='ugriz',
+                    repo="$SCRATCH/templates_rect", 
+                    rerun='multiband', batch='slurm', queue_knl=True,
+                    outfile=multibOutfile)
+    cassoc.main(atract[0].getId(), filters='ugriz', outfile=assocOutfile,
+                diff_repo="$SCRATCH/templates_rect/rerun/diff_rect",
+                batch='smp', cores=len(thepatches), rerun='assoc_sha', time=500)
+
+full_visitab = pd.concat(full_visits).drop_duplicates('visit').reset_index(drop=True)
+          
+cdia.main(filters='ugriz', visit=full_visitab,
+          outfile=diaOutfile, batch='slurm', cores=4, queue_knl=False,
+          tmpl_repo="$SCRATCH/templates_rect", rerun="diff_rect", 
+          config_path="./config/imageDifferenceDriver_config.py")
+
+cfPhot.main(dia_repo="$SCRATCH/templates_rect/rerun/diff_rect/rerun/assoc_sha",
+            dia_parent="$SCRATCH/templates_rect/rerun/diff_rect", time=50,
+            outfile=forcedOutfile, cores=8, batch_type='slurm', queue_knl=False)
             
             
             

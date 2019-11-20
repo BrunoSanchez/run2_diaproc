@@ -2,7 +2,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# create_forcedPhotCommands.py
+#  create_forcedPhotCommands.py
 #  
 #  Copyright 2019 bruno <bruno.sanchez@duke.edu>
 #  
@@ -30,22 +30,42 @@ dia_repo_parent = '/global/cscratch1/sd/bos0109/test_imdiff_run2/deepDiff/'
 
 dia_repo = "/global/cscratch1/sd/bos0109/test_imdiff_run2/rerun/multiband"
 
-cmd_tmpl = "time nice -n 10 forcedPhotCcdDiaDriver.py {} --rerun forcedPhot "
-cmd_tmpl +=" --id visit={} --cores {} --batch-type={} "
-cmd_tmpl +="--batch-options='-C knl -q regular'"
+nice = "nice -n 10 "
+cmd_tmpl = "forcedPhotCcdDiaDriver.py {} --rerun forcedPhot "
+cmd_tmpl +=" --id visit={} --cores {} --batch-type={} --time {} "
+cmd_tmpl +=" --job forcedPhot "
+cmd_opt_slrm = "  --batch-verbose  --batch-stats "
+cmd_opt_slrm+= "--mpiexec='-bind-to socket' "
+slrm_hasw = "--batch-options='-C haswell -q shared' "
+slrm_knl = "--batch-options='-C knl -q regular' "
 
-def main(dia_repo=dia_repo, dia_parent=dia_repo_parent, 
-         outfile='forcedPhotDiaCommands.sh', 
-         cores=4, batch_type='smp'):
+
+def main(dia_repo=dia_repo, dia_parent=dia_repo_parent, visitab=None,
+         outfile='forcedPhotDiaCommands.sh', time=100,
+         cores=4, batch_type='smp', queue_knl=False):
     visits_str = ''
     #file_prefix_templ = 'v*'
-    for adir in glob(dia_repo_parent+'v*'):
-        slimdir = adir.split('/')[-1]
-        visitn = slimdir[1:-3]
-        print(slimdir, visitn)
-        visits_str += visitn+'^'
+    if visitab is None:
+        for adir in glob(dia_repo_parent+'v*'):
+            slimdir = adir.split('/')[-1]
+            visitn = slimdir[1:-3]
+            print(slimdir, visitn)
+            visits_str += visitn+'^'
+    elif isinstance(visitab, pd.DataFrame):
+        for avisit in visitab.visit.values:
+            visits_str += visitn+'^'
 
-    commands = [cmd_tmpl.format(dia_repo, visits_str[:-1], cores, batch_type)]
+    cmd = cmd_tmpl.format(dia_repo, visits_str[:-1], cores, batch_type, time)
+    if batch_type=='slurm':
+        cmd+=cmd_opt_slrm
+        if queue_knl:
+            cmd+=slrm_knl
+        else:
+            cmd+=slrm_hasw
+    else: 
+        cmd = nice + cmd
+
+    commands = [cmd]
 
     with open(outfile, 'w') as cf:
         for acmd in commands:

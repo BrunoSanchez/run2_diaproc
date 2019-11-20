@@ -62,12 +62,12 @@ def main(tract, filters='griz', diff_repo=diff_repo,
             with open(outfile, 'a+') as cf:
                 cf.write(cmd)
                 cf.write('\n\n')
-            print("Wrote multiband command to {}".format(outfile))
+            print("Wrote association command to {}".format(outfile))
         else:
             try:
                 outfile.write(cmd)
                 outfile.write('\n\n')    
-                print("Wrote multiband command")
+                print("Wrote association command")
             except:
                 return cmd
 
