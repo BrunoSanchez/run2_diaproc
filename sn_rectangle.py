@@ -108,7 +108,7 @@ def main(ramax=58, ramin=56, decmin=-32, decmax=-31, t0=59215, tm=61406):
     boresight = []
     orientation = []
     wcs_list = []
-    for ivisit, avisit in visitab.iterrows():
+    for avisit in visitab.itertuples():
         bsight = geom.SpherePoint(avisit.descDitheredRA*geom.degrees, 
                                   avisit.descDitheredDec*geom.degrees)
         orient = avisit.descDitheredRotTelPos*lsst.geom.degrees
@@ -123,7 +123,7 @@ def main(ramax=58, ramin=56, decmin=-32, decmax=-31, t0=59215, tm=61406):
     depths= visitab['fiveSigmaDepth']
     #colnames = ['mjd', 'filter']
     data_cols = {'mjd': times, 'filter': bands}
-    for i_sn, asn in sntab.iterrows():
+    for asn in sntab.itertuples():
         sn_mod = SNObject(ra=asn.snra_in, dec=asn.sndec_in)
         sn_mod.set(z=asn.z_in, t0=asn.t0_in, x1=asn.x1_in, 
                    c=asn.c_in, x0=asn.x0_in)
@@ -148,7 +148,7 @@ def main(ramax=58, ramin=56, decmin=-32, decmax=-31, t0=59215, tm=61406):
             sn_mags.append(mag)
             sn_flxe.append(flux_er)
             sn_mage.append(mag_er)
-                    
+
         data_cols[asn.snid_in+'_observed'] = sn_obsrvd
         data_cols[asn.snid_in+'_flux'] = sn_flxs
         data_cols[asn.snid_in+'_fluxErr'] = sn_flxe
