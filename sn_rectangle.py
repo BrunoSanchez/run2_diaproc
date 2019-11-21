@@ -83,21 +83,12 @@ def main(ramax=58, ramin=56, decmin=-32, decmax=-31, t0=59215, tm=61406):
                                             fieldDec=(decmin-3, decmax+3), 
                                             expMJD=(t0, tm))
         parsed = [Odict(obsmd.summary['OpsimMetaData']) for obsmd in res]
-
-        # for ap, obsmd in zip(parsed, res):
-        #     ap['pointingRA'] = obsmd.pointingRA
-        #     ap['pointingDec'] = obsmd.pointingDec
-        #     ap['Opsim_rotSkyPos'] = ap['rotSkyPos']
-        #     ap['rotSkyPos'] = obsmd.rotSkyPos
-
         df = pd.DataFrame(parsed)
         df = df[df['filter'].isin(('g', 'r', 'i', 'z', 'y'))]
 
         X = df[['obsHistID', 'filter', 'FWHMeff', 'descDitheredRA', 
                 'descDitheredDec', 'descDitheredRotTelPos', 'airmass', 
-                'fiveSigmaDepth', 'expMJD'#,
-                #'pointingRA', 'pointingDec', 'rotSkyPos'
-                ]].copy()
+                'fiveSigmaDepth', 'expMJD']].copy()
         X.descDitheredRA = np.degrees(X.descDitheredRA)
         X.descDitheredDec = np.degrees(X.descDitheredDec)
 
@@ -157,16 +148,13 @@ def main(ramax=58, ramin=56, decmin=-32, decmax=-31, t0=59215, tm=61406):
             sn_mags.append(mag)
             sn_flxe.append(flux_er)
             sn_mage.append(mag_er)
-        
+                    
         data_cols[asn.snid_in+'_observed'] = sn_obsrvd
         data_cols[asn.snid_in+'_flux'] = sn_flxs
         data_cols[asn.snid_in+'_fluxErr'] = sn_flxe
         data_cols[asn.snid_in+'_mag'] = sn_mags
         data_cols[asn.snid_in+'_magErr'] = sn_mage
-        #colnames.append(asn.snid_in)
-    # dat = {}
-    # for aname, adata in zip(colnames, data_cols): 
-    #     dat[aname] = adata 
+
     lightcurves = pd.DataFrame(data_cols)
     dest_lc = './lightcurves/lightcurves_cat_rect_{}_{}_{}_{}.csv'
     lightcurves.to_csv(dest_lc.format(ramax, ramin, decmax, decmin))
