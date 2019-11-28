@@ -103,7 +103,7 @@ def main(ramax=58, ramin=56, decmin=-32, decmax=-31, t0=59215, tm=61406):
         visitab = X.query('d1 < 1.75 | d2 < 1.75 | d3 < 1.75 |d4 < 1.75')
         del(X)
         del(df)
-
+        visitab.to_csv('./catalogs+tables/full_t_visits_from_minion.csv')
     # setting the observation telescope status
     boresight = []
     orientation = []
@@ -117,12 +117,13 @@ def main(ramax=58, ramin=56, decmin=-32, decmax=-31, t0=59215, tm=61406):
                        projection='TAN') for t in trans])
         orientation.append(orient)
         boresight.append(bsight)
-
+    
     times = visitab['expMJD']
     bands = visitab['filter']
     depths= visitab['fiveSigmaDepth']
     #colnames = ['mjd', 'filter']
-    data_cols = {'mjd': times, 'filter': bands}
+    data_cols = {'mjd': times, 'filter': bands, 'visitn': visitab['obsHistID']}
+    n_observ = []
     for asn in sntab.itertuples():
         sn_mod = SNObject(ra=asn.snra_in, dec=asn.sndec_in)
         sn_mod.set(z=asn.z_in, t0=asn.t0_in, x1=asn.x1_in, 
@@ -154,14 +155,18 @@ def main(ramax=58, ramin=56, decmin=-32, decmax=-31, t0=59215, tm=61406):
         data_cols[asn.snid_in+'_fluxErr'] = sn_flxe
         data_cols[asn.snid_in+'_mag'] = sn_mags
         data_cols[asn.snid_in+'_magErr'] = sn_mage
-
+        n_observ.append(np.sum(sn_obsrvd))
+    sntab['Nobserv'] = n_observ
     lightcurves = pd.DataFrame(data_cols)
     dest_lc = './lightcurves/lightcurves_cat_rect_{}_{}_{}_{}.csv'
     lightcurves.to_csv(dest_lc.format(ramax, ramin, decmax, decmin))
     dest_snfile = './catalogs+tables/supernovae_cat_rect_{}_{}_{}_{}.csv'
     sntab.to_csv(dest_snfile.format(ramax, ramin, decmax, decmin))
     print("""Stored the lightcurves in {}, 
-             the SN catalog in {}""".format(dest_lc, dest_snfile))
+             the SN catalog in {}""".format(dest_lc.format(ramax, ramin, 
+                                                           decmax, decmin), 
+                                            dest_snfile.format(ramax, ramin, 
+                                                               decmax, decmin)))
     return 
 
 

@@ -104,7 +104,7 @@ for atract in tpatches:
         ccoadd.main(atract[0].getId(), apatch.getIndex(), calexp_repo=repo,
                     output_repo="$SCRATCH/templates_rect", 
                     database=database, cores=4, batch='slurm', 
-                    queue_knl=True)
+                    queue_knl=False)
         
         multib.main(atract[0].getId(), apatch.getIndex(), 
                     filters='ugriz',
