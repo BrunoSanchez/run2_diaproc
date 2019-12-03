@@ -123,7 +123,7 @@ def main(ramax=58, ramin=56, decmin=-32, decmax=-31, t0=59215, tm=61406):
     depths= visitab['fiveSigmaDepth']
     #colnames = ['mjd', 'filter']
     data_cols = {'mjd': times, 'filter': bands, 'visitn': visitab['obsHistID']}
-    n_observ = []
+    n_observ = []; n_trueobserv = []
     for asn in sntab.itertuples():
         sn_mod = SNObject(ra=asn.snra_in, dec=asn.sndec_in)
         sn_mod.set(z=asn.z_in, t0=asn.t0_in, x1=asn.x1_in, 
@@ -131,7 +131,8 @@ def main(ramax=58, ramin=56, decmin=-32, decmax=-31, t0=59215, tm=61406):
 
         sn_skyp = afwGeom.SpherePoint(asn.snra_in, asn.sndec_in, afwGeom.degrees)
     
-        sn_flxs = []; sn_mags = []; sn_flxe = []; sn_mage = []; sn_obsrvd = []
+        sn_flxs = []; sn_mags = []; sn_flxe = []
+        sn_mage = []; sn_obsrvd = []; sn_observable = []
         for mjd, filt, wcsl, m5 in zip(times, bands, wcs_list, depths):
             flux = sn_mod.catsimBandFlux(mjd, LSST_BPass[filt])
             mag = sn_mod.catsimBandMag(LSST_BPass[filt], mjd, flux)
@@ -142,21 +143,26 @@ def main(ramax=58, ramin=56, decmin=-32, decmax=-31, t0=59215, tm=61406):
             contain = [box.contains(afwGeom.Point2I(wcs.skyToPixel(sn_skyp))) \
                            for box, wcs in zip(boxes, wcsl)]
             observed = np.sum(contain) > 0
+            observable = observed & (mag + mag_er < 27.0) & (mag_er < 0.5)
             # if observed:
-            #     print('Overlaps ccd', names[np.where(contain)[0][0]])            
+            #     print('Overlaps ccd', names[np.where(contain)[0][0]])      
+            sn_observable.append(observable)      
             sn_obsrvd.append(observed)
             sn_flxs.append(flux)  # done
             sn_mags.append(mag)
             sn_flxe.append(flux_er)
             sn_mage.append(mag_er)
-
+        
+        data_cols[asn.snid_in+'_observable'] = sn_observable
         data_cols[asn.snid_in+'_observed'] = sn_obsrvd
         data_cols[asn.snid_in+'_flux'] = sn_flxs
         data_cols[asn.snid_in+'_fluxErr'] = sn_flxe
         data_cols[asn.snid_in+'_mag'] = sn_mags
         data_cols[asn.snid_in+'_magErr'] = sn_mage
         n_observ.append(np.sum(sn_obsrvd))
+        n_trueobserv.append(np.sum(sn_observable))
     sntab['Nobserv'] = n_observ
+    sntab['N_trueobserv'] = n_trueobserv
     lightcurves = pd.DataFrame(data_cols)
     dest_lc = './lightcurves/lightcurves_cat_rect_{}_{}_{}_{}.csv'
     lightcurves.to_csv(dest_lc.format(ramax, ramin, decmax, decmin))

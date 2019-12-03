@@ -63,6 +63,18 @@ diaSrc_store = pd.HDFStore('/global/cscratch1/sd/bos0109/diaSrc_fulltables.h5')
 diaSrc_store.open()
 metacols = ['id', 'visit', 'filter', 'raftName', 'detectorName', 'detector']
 
+#region ------------------------------------------------------------------------
+## ========================================================================== ##
+## =================== Convenient functions ================================= ##
+## ========================================================================== ##
+def get_truth_LC(truth_tab, snid):
+    sffx = ['_observable', '_observed', '_flux', '_fluxErr', '_mag', '_magErr']
+    snid = str(snid)
+    colset = ['mjd', 'filter', 'visitn'] + [snid+acol for acol in sffx]
+    return truth_tab[colset]
+#endregion  --------------------------------------------------------------------
+
+#region  -----------------------------------------------------------------------
 ## ========================================================================== ##
 ## =================== Matching iterating over t+p ========================== ##
 ## ========================================================================== ##
@@ -83,54 +95,20 @@ rect = [radec_NE, radec_NW, radec_SW, radec_SE]
 
 tpatches = skymap.findTractPatchList(rect)
 
-# iterating over tract and patches to build diaSrc catalogues
-#region  this is now in file diasrc_rendertable.py
-path = os.path.join(diarepo, 'deepDiff')
-diffpath = 'v{}-f{}/{}/diaSrc_{}-{}-{}-{}-det{}.fits'
-# for tract, patches in tpatches:
-#     tract_info = skymap[tract.getId()]
-#     for patch in patches:
-#         # identify the t+p
-#         patch_i, patch_j = patch.getIndex()
-#         patch_str = '{},{}'.format(patch_i, patch_j)
-#         tpId = {'tract': tract.getId(), 'patch': patch_str}
-        
-#         store_key = str(tract.getId())+'_'+str(patch_i)+str(patch_j)
-#         if store_key in diaSrc_store: continue
-        
-#         print('starting with ', tpId)
-#         metadata = diabutler.queryMetadata('deepDiff_diaSrc',metacols,dataId=tpId)
-#         metadata = pd.DataFrame(metadata, columns=metacols)
-#         #metadata = metadata[metadata['filter']!='u']
-#         metadata = metadata[metadata['filter']!='y']
-        
-#         cats = []
-#         for idx, idr, vn, fna, raf, detN, det in metadata.itertuples():
-#             #if fna=='y' or fna=='u': continue
-#             pp = diffpath.format(str(vn).zfill(8), fna, raf, str(vn).zfill(8), 
-#                                  fna, raf, detN, str(det).zfill(3))
-#             dpath = os.path.join(path, pp)
-#             if os.path.exists(dpath):
-#                 catalog = diabutler.get('deepDiff_diaSrc', visit=vn, 
-#                                         detector=det).asAstropy()
-#                 if len(catalog) is not 0:
-#                     catalog['visit_n'] = vn
-#                     catalog['filter'] = fna
-#                     catalog['raft'] = raf
-#                     catalog['sensor'] = detN
-#                     catalog['detector'] = det
-#                     cats.append(catalog)
-        
-#         diaSrc_store[store_key] = vstack(cats).to_pandas()
-#         diaSrc_store.flush()
-#endregion
-
 ## iterating over every tract and patch
 N_matches = 0
 sn_matched_tab = []
 diaO_matched_tab = []
 assoc_table = []
 d_tol = 2.5*u.arcsec
+# I have found out that every t+p contains the same information, a single 
+# table of length 947602
+#store_key = str(tract.getId())+'_'+str(patch_i)+str(patch_j)
+diaSrcs_tab = diaSrc_store['/4640_30']
+diaSrc_store['new_tab'] = diaSrcs_tab
+diaSrcs_tab = diaSrc_store['new_tab']
+diaSrcs_tab['epoch_matched'] = False
+
 for tract, patches in tpatches:
     tract_info = skymap[tract.getId()]
     for patch in patches:
@@ -138,7 +116,7 @@ for tract, patches in tpatches:
         patch_i, patch_j = patch.getIndex()
         patch_str = '{},{}'.format(patch_i, patch_j)
         tpId = {'tract': tract.getId(), 'patch': patch_str}
-
+        
         ## get the t+p coordinate box corners
         tp_box = tract_info.getPatchInfo(patch.getIndex()).getOuterBBox()
         tp_pos_list = tp_box.getCorners()
@@ -153,7 +131,7 @@ for tract, patches in tpatches:
         ra, dec = corners[:, 0], corners[:, 1]
         min_ra, max_ra = np.min(ra), np.max(ra)
         min_dec, max_dec = np.min(dec), np.max(dec)
-
+        print(min_ra, max_ra, min_dec, max_dec)
         ## filter the SN tab 
         snq = 'snra_in > {} and snra_in < {} and sndec_in > {} and sndec_in < {}' 
         SNtab = sntab.query(snq.format(min_ra, max_ra, min_dec, max_dec))
@@ -192,6 +170,7 @@ for tract, patches in tpatches:
         SNtab['dia_id'] = diaObject_table[idx]['id']
         SNtab['tract'] = tpId['tract']
         SNtab['patch'] = tpId['patch']
+        SNtab['n_dia_detections'] = 0
         
         diaObject_table['match'] = matchO
         diaObject_table['sn_row'] = idx_
@@ -203,16 +182,63 @@ for tract, patches in tpatches:
         print(tract, patch, np.sum(match), np.sum(matchO))
         N_matches += np.sum(match)
         
+        # making the epoch-by-epoch matching
+
+        # object from diaObject not matched would be bogus
+        #bogus_obj = diaObject_table[~diaObject_table['match']]
+        # sn not matched would be missed targets
+        #missed_sn = SNtab[~SNtab.matched]
+        # sn and diaObjects matched would be candidates to TP
+        cand_obj = diaObject_table[diaObject_table['match']]
+        #cand_sn = SNtab[SNtab.matched]
+        current_assoc = assoc_table[-1]
+        for ic in range(len(cand_obj)):
+            # both data rows
+            diaC = cand_obj[ic]
+            snC = SNtab[SNtab.dia_id==diaC['id']]
+            # search for dia epochs:
+            diaSrcs_ids = current_assoc[current_assoc['diaObjectId']==diaC['id']]
+            # query for each epoch
+            dia_lc = []
+            for anid in diaSrcs_ids['diaSrcIds'].values[0]:
+                dia_lc.append(diaSrcs_tab.query('id == {}'.format(anid)))
+            # search for SN epochs
+            snC_lc = get_truth_LC(truth_lightc, snC.snid_in.values[0])
+            sn_epoch_match = np.repeat(False, len(snC_lc))
+            for a_dia_epoch in dia_lc:
+                v_match = snC_lc.visitn == int(a_dia_epoch['visit_n'])
+                sn_epoch_match = sn_epoch_match | v_match
+                if np.sum(v_match) == 1: # a true positive!
+                    diaSrcs_tab.loc[a_dia_epoch.index[0], 'epoch_matched'] = True
+                elif np.sum(v_match) == 0: pass  # a false positive
+                elif np.sum(v_match) > 1: pass  # multipl matches? repeated obj?
+
+            vep_col = snC.snid_in.values[0]+'_epoch_DIAmatch'
+            if vep_col in truth_lightc.columns:
+                truth_lightc[vep_col] = truth_lightc[vep_col] | sn_epoch_match
+            else:
+                truth_lightc[vep_col] = sn_epoch_match
+            sn_N_detects = np.sum(truth_lightc[vep_col])
+            SNtab.loc[SNtab.dia_id==diaC['id'], 'n_dia_detections'] = sn_N_detects
+
         sn_matched_tab.append(SNtab)
         diaO_matched_tab.append(diaObject_table)
+        #diaSrc_store[store_key] = diaSrcs_tab
+        diaSrc_store['new_tab'] = diaSrcs_tab
+        diaSrc_store.flush()
 
 sn_matched_tab = pd.concat(sn_matched_tab)
 diaO_matched_tab = vstack(diaO_matched_tab)
 assoc_table = pd.concat(assoc_table)
 print(N_matches, len(sntab), N_matches/len(sntab))
+#endregion ---------------------------------------------------------------------
 
-# plots of matched vs not matched
-#region  
+#region  -----------------------------------------------------------------------
+## ========================================================================== ##
+## ================== Plots of Matched vs NOT-matched ======================= ##
+## ========================================================================== ##
+ 
+#region -------------------------------------------sn tab match vs nomatch -----
 ff = sn_matched_tab.matched
 # z
 plt.figure(figsize=(12, 8))
@@ -262,23 +288,102 @@ plt.ylabel('sndec_in')
 plt.tight_layout()
 plt.savefig('match_sntab.png')
 plt.close()
+#endregion ---------------------------------------------------------------------
+
+#region ---------------------------------------dia Object match vs NOmatch------
+ff = diaO_matched_tab['match'].data
+plt.subplot(221)
+plt.hist(diaO_matched_tab['match'].data.astype(int), log=True)
+plt.xlabel('Matched ?')
+plt.subplot(222)
+bins=np.logspace(0, np.log10(np.max(diaO_matched_tab['nobs'])), num=20)
+plt.hist(diaO_matched_tab[ff]['nobs'], color='black', 
+         label='matched', bins=bins, histtype='step', log=True)
+plt.hist(diaO_matched_tab[~ff]['nobs'], color='red', label='FP', 
+         bins=bins, histtype='step', log=True)
+plt.xlabel('N observations')
+plt.subplot(223)
+bins=np.logspace(0, np.log10(np.max(diaO_matched_tab['match_ang_dist'])), num=20)
+plt.hist(diaO_matched_tab[ff]['match_ang_dist'], color='black', 
+         label='matched', histtype='step', bins=bins, log=True)
+plt.hist(diaO_matched_tab[~ff]['match_ang_dist'], color='red', 
+         label='FP', histtype='step', bins=bins, log=True)
+plt.xlabel('ang dist [arcsec]')
+plt.legend(loc='best')
+plt.subplot(224)
+plt.plot(np.rad2deg(diaO_matched_tab[~ff]['coord_ra'].data), 
+         np.rad2deg(diaO_matched_tab[~ff]['coord_dec'].data), '.', color='red', 
+         label='FP', alpha=0.1)
+plt.plot(np.rad2deg(diaO_matched_tab[ff]['coord_ra'].data), 
+         np.rad2deg(diaO_matched_tab[ff]['coord_dec'].data), 'x', color='black', 
+         label='matched', alpha=0.1)
+plt.vlines(x=[56., 58], ymin=-32., ymax=-31, color='black')
+plt.hlines(y=[-31., -32], xmin=56., xmax=58, color='black')
+plt.xlabel('ra')
+plt.ylabel('dec')
+plt.tight_layout()
+plt.savefig('diaO_table.png')
+plt.close()
+#endregion ---------------------------------------------------------------------
+
+#region  -----------------------------------------------------------------------
+diaSrc_tab = diaSrc_store['new_tab']
+print(len(diaSrc_tab))
+print(np.sum(diaSrc_tab.epoch_matched), len(diaSrc_tab), 
+      np.sum(diaSrc_tab.epoch_matched)/len(diaSrc_tab))
+bogus = diaSrc_tab[~diaSrc_tab.epoch_matched]
+reals = diaSrc_tab[diaSrc_tab.epoch_matched]
+#endregion  --------------------------------------------------------------------
+
+# to build the missed target samples we still need to unfold the table of
+# simulated lightcurves, using the column of snid_in+_epoch_DIAmatch
+# to do this we would need to iter over the 
+lcs = []
+for asn in sntab.itertuples():
+    asnid = asn.snid_in
+    asn_cols = [col for col in truth_lightc.columns if asnid+'_' in col]
+    translate = {}
+    for acol in asn_cols:
+        translate[acol] = acol[len(asnid)+1:]
+    asn_cols += ['mjd', 'filter', 'visitn']
+    snlightc = truth_lightc[asn_cols].copy()
+    if asnid+'_epoch_DIAmatch' not in snlightc.columns:
+        snlightc['epoch_DIAmatch'] = False
+    else:
+        translate[asnid+'_epoch_DIAmatch'] = 'epoch_DIAmatch'
+    snlightc.rename(columns=translate, inplace=True)
+    snlightc['SN_id'] = asnid
+    lcs.append(snlightc)
+snlcs = pd.concat(lcs)
+snlcs.to_csv('lightcurves/sn_matched_lcs.csv')
 #endregion
+cllc = snlcs.observable & snlcs.observed 
+cllc = cllc & (snlcs.filter!='y') & (snlcs.filter!='u')
+clean_snlc = snlcs[cllc]
+print(np.sum(snlcs.epoch_DIAmatch))
 
-# object from diaObject not matched would be bogus
-bogus_obj = diaO_matched_tab[diaO_matched_tab['match']]
-# sn not matched would be missed targets
-missed_sn = sn_matched_tab[~ff]
-# sn and diaObjects matched would be candidates to TP
-for ic in range(N_matches):
-    # both data rows
-    diaC = diaO_matched_tab[ic]
-    snC = sn_matched_tab[~ff].iloc[ic]
-    
-    tract = diaC['tract']
-    patch_i, _, patch_j = diaC['patch']
-    store_key = str(tract.getId())+'_'+str(patch_i)+str(patch_j)
-    # search for dia epochs:
-    diaSrcs_ids = assoc_table[assoc_table['diaObjectId']==diaC['id']]
-    diaSrcs_tab = diaSrc_store[store_key]
 
+
+diaOtables = []
+for tract, patches in tpatches:
+    tract_info = skymap[tract.getId()]
+    for patch in patches:
+        # identify the t+p
+        patch_i, patch_j = patch.getIndex()
+        patch_str = '{},{}'.format(patch_i, patch_j)
+        tpId = {'tract': tract.getId(), 'patch': patch_str}
+        
+        try:
+            diaObject_table = diabutler.get('deepDiff_diaObject', 
+                                            dataId=tpId).asAstropy()
+            
+            assoc_table.append(diabutler.get('deepDiff_diaObjectId', 
+                                             dataId=tpId).toDataFrame())
+        except:
+            print(tpId, 'failed \n')
+            continue
+
+        diaO_coord = SkyCoord(ra=diaObject_table['coord_ra'], 
+                              dec=diaObject_table['coord_dec'],
+                              frame='icrs')
 
