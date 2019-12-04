@@ -92,18 +92,17 @@ radec_SE = afwGeom.SpherePoint(ramax, decmin, afwGeom.degrees)
 radec_SW = afwGeom.SpherePoint(ramin, decmin, afwGeom.degrees)
 radec_NW = afwGeom.SpherePoint(ramin, decmax, afwGeom.degrees)
 rect = [radec_NE, radec_NW, radec_SW, radec_SE]
-
 tpatches = skymap.findTractPatchList(rect)
-
 
 # I have found out that every t+p contains the same information, a single 
 # table of length 947602
 #store_key = str(tract.getId())+'_'+str(patch_i)+str(patch_j)
-diaSrcs_tab = diaSrc_store['/4640_30']
-diaSrc_store['new_tab'] = diaSrcs_tab
+# diaSrcs_tab = diaSrc_store['/4640_30']
+# diaSrc_store['new_tab'] = diaSrcs_tab
 diaSrcs_tab = diaSrc_store['new_tab']
 diaSrcs_tab['epoch_matched'] = False
 
+#region  -----------------------------------------------------------------------
 ## iterating over every tract and patch
 d_tol = 2.5*u.arcsec
 assoc_table = []
@@ -117,8 +116,10 @@ for tract, patches in tpatches:
         tpId = {'tract': tract.getId(), 'patch': patch_str}
         ## ask for diaObject
         try:
-            diaObject_table.append(diabutler.get('deepDiff_diaObject', 
-                                            dataId=tpId).asAstropy())
+            dOtab = diabutler.get('deepDiff_diaObject', dataId=tpId).asAstropy()
+            dOtab['tract'] = tract.getId()
+            dOtab['patch'] = patch_str
+            diaObject_table.append(dOtab)
             assoc_table.append(diabutler.get('deepDiff_diaObjectId', 
                                              dataId=tpId).toDataFrame())
         except:
@@ -127,32 +128,12 @@ for tract, patches in tpatches:
 assoc_table = pd.concat(assoc_table)
 diaObject_table = vstack(diaObject_table) 
 
-#region  ----------------------------------------------- legacy code -----------
-        # ## get the t+p coordinate box corners
-        # tp_box = tract_info.getPatchInfo(patch.getIndex()).getOuterBBox()
-        # tp_pos_list = tp_box.getCorners()
-        # # Cast to Point2D, because pixelToSky below 
-        # # will refuse to work with a Point2I object.
-        # tp_pos_list = [afwGeom.Point2D(tp) for tp in tp_pos_list]
-
-        # wcs = tract_info.getWcs()
-        # corners = wcs.pixelToSky(tp_pos_list)
-        # corners = np.array([[c.getRa().asDegrees(), c.getDec().asDegrees()] \
-        #                     for c in corners])
-        # ra, dec = corners[:, 0], corners[:, 1]
-        # min_ra, max_ra = np.min(ra), np.max(ra)
-        # min_dec, max_dec = np.min(dec), np.max(dec)
-        # print(min_ra, max_ra, min_dec, max_dec)
-        ## filter the SN tab 
-        # snq = 'snra_in > {} and snra_in < {} and sndec_in > {} and sndec_in < {}' 
-        # SNtab = sntab.query(snq.format(min_ra, max_ra, min_dec, max_dec))
-        #sn_coord = SkyCoord(ra=SNtab.snra_in*u.deg, dec=SNtab.sndec_in*u.deg, 
-        #                  frame='icrs')
-#endregion  --------------------------------------------------------------------
-sn_coord = SkyCoord(ra=sntab.snra_in*u.deg, dec=sntab.sndec_in*u.deg, frame='icrs')
+sn_coord = SkyCoord(ra=sntab.snra_in*u.deg, 
+                    dec=sntab.sndec_in*u.deg, frame='icrs')
 diaO_coord = SkyCoord(ra=diaObject_table['coord_ra'], 
                       dec=diaObject_table['coord_dec'], frame='icrs')
-
+#endregion ---------------------------------------------------------------------
+#region  -----------------------------------------------------------------------
 #produce the actual matching
 idx, d2d, d3d = sn_coord.match_to_catalog_sky(diaO_coord)
 idx_, d2d_, d3d_ = diaO_coord.match_to_catalog_sky(sn_coord)
@@ -179,21 +160,18 @@ diaObject_table['match'] = matchO
 diaObject_table['sn_row'] = idx_
 diaObject_table['match_ang_dist'] = d2d_.to(u.arcsec)
 diaObject_table['sn_id'] = sntab.iloc[idx_]['galaxy_id'].values
-#diaObject_table['tract'] = tpId['tract']
-#diaObject_table['patch'] = tpId['patch']
 
 N_matches = np.sum(match)
+#endregion ---------------------------------------------------------------------
+#region  -----------------------------------------------------------------------
+# making the epoch-by-epoch matching
 
-        # making the epoch-by-epoch matching
-
-        # object from diaObject not matched would be bogus
-        #bogus_obj = diaObject_table[~diaObject_table['match']]
-        # sn not matched would be missed targets
-        #missed_sn = SNtab[~SNtab.matched]
-        # sn and diaObjects matched would be candidates to TP
+# object from diaObject not matched would be bogus
+#bogus_obj = diaObject_table[~diaObject_table['match']]
+# sn not matched would be missed targets
+#missed_sn = sntab[~sntab.matched]
+# sn and diaObjects matched would be candidates to TP
 cand_obj = diaObject_table[diaObject_table['match']]
-#cand_sn = SNtab[SNtab.matched]
-#current_assoc = assoc_table[-1]
 for ic in range(len(cand_obj)):
     # both data rows
     diaC = cand_obj[ic]
@@ -223,25 +201,65 @@ for ic in range(len(cand_obj)):
     sn_N_detects = np.sum(truth_lightc[vep_col])
     sntab.loc[sntab.dia_id==diaC['id'], 'n_dia_detections'] = sn_N_detects
 
-#sn_matched_tab.append(SNtab)
-#diaO_matched_tab.append(diaObject_table)
-#diaSrc_store[store_key] = diaSrcs_tab
 diaSrc_store['new_tab'] = diaSrcs_tab
 diaSrc_store.flush()
-
-#sn_matched_tab = pd.concat(sn_matched_tab)
-#diaO_matched_tab = vstack(diaO_matched_tab)
-#assoc_table = pd.concat(assoc_table)
 print(N_matches, len(sntab), N_matches/len(sntab))
+#endregion ---------------------------------------------------------------------
 #endregion ---------------------------------------------------------------------
 diaObject_table.write('results/diaObject_table.csv', format='csv')                               
 sntab.to_csv('results/sntab_matched.csv')
+
+#region --------------------------- bringing everything to same ra-dec frame ---
+sq = (sntab.snra_in <= 58) & (sntab.snra_in >= 56) 
+sq = sq & (sntab.sndec_in >= -32) & (sntab.sndec_in <= -31) 
+sntab = sntab[sq]
+
+diaObject_table['coord_ra_deg'] = diaObject_table['coord_ra'].to(u.deg)
+diaObject_table['coord_dec_deg'] = diaObject_table['coord_dec'].to(u.deg)
+sq = (diaObject_table['coord_ra_deg'] >=  56) 
+sq = sq & (diaObject_table['coord_ra_deg'] <= 58)
+sq = sq & (diaObject_table['coord_dec_deg'] >= -32) 
+sq = sq & (diaObject_table['coord_dec_deg'] <= -31)
+diaObject_table = diaObject_table[sq]
+
+diaSrcs_tab['coord_ra_deg'] = np.rad2deg(diaSrcs_tab['coord_ra'])
+diaSrcs_tab['coord_dec_deg'] = np.rad2deg(diaSrcs_tab['coord_dec'])
+sq = (diaSrcs_tab['coord_ra_deg'] >=  56) 
+sq = sq & (diaSrcs_tab['coord_ra_deg'] <= 58)
+sq = sq & (diaSrcs_tab['coord_dec_deg'] >= -32) 
+sq = sq & (diaSrcs_tab['coord_dec_deg'] <= -31)
+diaSrcs_tab = diaSrcs_tab[sq]
+#endregion  --------------------------------------------------------------------
+
+#region ------------------------------------ unfolding the lightcurves ---------
+# to build the missed target samples we still need to unfold the table of
+# simulated lightcurves, using the column of snid_in+_epoch_DIAmatch
+# to do this we would need to iter over the 
+lcs = []
+for asn in sntab.itertuples():
+    asnid = asn.snid_in
+    asn_cols = [col for col in truth_lightc.columns if asnid+'_' in col]
+    translate = {}
+    for acol in asn_cols:
+        translate[acol] = acol[len(asnid)+1:]
+    asn_cols += ['mjd', 'filter', 'visitn']
+    snlightc = truth_lightc[asn_cols].copy()
+    if asnid+'_epoch_DIAmatch' not in snlightc.columns:
+        snlightc['epoch_DIAmatch'] = False
+    else:
+        translate[asnid+'_epoch_DIAmatch'] = 'epoch_DIAmatch'
+    snlightc.rename(columns=translate, inplace=True)
+    snlightc['SN_id'] = asnid
+    lcs.append(snlightc)
+snlcs = pd.concat(lcs)
+snlcs.to_csv('lightcurves/sn_matched_lcs.csv')
+#endregion ---------------------------------------------------------------------
 
 #region  -----------------------------------------------------------------------
 ## ========================================================================== ##
 ## ================== Plots of Matched vs NOT-matched ======================= ##
 ## ========================================================================== ##
- 
+
 #region -------------------------------------------sn tab match vs nomatch -----
 ff = sntab.matched
 # z
@@ -296,6 +314,7 @@ plt.close()
 
 #region ---------------------------------------dia Object match vs NOmatch------
 ff = diaObject_table['match'].data
+plt.figure(figsize=(12, 8))
 plt.subplot(221)
 plt.hist(diaObject_table['match'].data.astype(int), log=True)
 plt.xlabel('Matched ?')
@@ -306,6 +325,7 @@ plt.hist(diaObject_table[ff]['nobs'], color='black',
 plt.hist(diaObject_table[~ff]['nobs'], color='red', label='FP', 
          bins=bins, histtype='step', log=True)
 plt.xlabel('N observations')
+plt.xscale('log')
 plt.subplot(223)
 bins=np.logspace(0, np.log10(np.max(diaObject_table['match_ang_dist'])), num=20)
 plt.hist(diaObject_table[ff]['match_ang_dist'], color='black', 
@@ -313,6 +333,7 @@ plt.hist(diaObject_table[ff]['match_ang_dist'], color='black',
 plt.hist(diaObject_table[~ff]['match_ang_dist'], color='red', 
          label='FP', histtype='step', bins=bins, log=True)
 plt.xlabel('ang dist [arcsec]')
+plt.xscale('log')
 plt.legend(loc='best')
 plt.subplot(224)
 plt.plot(np.rad2deg(diaObject_table[~ff]['coord_ra'].data), 
@@ -320,7 +341,7 @@ plt.plot(np.rad2deg(diaObject_table[~ff]['coord_ra'].data),
          label='FP', alpha=0.1)
 plt.plot(np.rad2deg(diaObject_table[ff]['coord_ra'].data), 
          np.rad2deg(diaObject_table[ff]['coord_dec'].data), 'x', color='black', 
-         label='matched', alpha=0.1)
+         label='matched', alpha=1)
 plt.vlines(x=[56., 58], ymin=-32., ymax=-31, color='black')
 plt.hlines(y=[-31., -32], xmin=56., xmax=58, color='black')
 plt.xlabel('ra')
@@ -330,36 +351,71 @@ plt.savefig('diaO_table.png')
 plt.close()
 #endregion ---------------------------------------------------------------------
 
+#region  -----------------------------get the calibration zeropoints------------
+meta = diabutler.queryMetadata('deepDiff_differenceExp_photoCalib', metacols)
+meta = pd.DataFrame(meta, columns=metacols)
+zeros = []
+for idx, idr, vn, fna, raf, detN, det in metadata.itertuples():
+    #if fna=='y' or fna=='u': continue
+    #pp = diffpath.format(str(vn).zfill(8), fna, raf, str(vn).zfill(8), 
+                            fna, raf, detN, str(det).zfill(3))
+    #dpath = os.path.join(path, pp)
+    #if os.path.exists(dpath):
+    try:
+        catalog = diabutler.get('deepDiff_differenceExp_photoCalib', visit=vn, 
+                                detector=det).asAstropy()
+        print(idx, idr, vn, fna, raf, detN, det)
+    except:
+        continue
+    if len(catalog) is not 0:
+        catalog['visit_n'] = vn
+        catalog['filter'] = fna
+        catalog['raft'] = raf
+        catalog['sensor'] = detN
+        catalog['detector'] = det
+        zeros.append(catalog)
+    if idx>30: break
+#endregion ---------------------------------------------------------------------
+
+
+#region  --------------------------------------- analyzing brightness of objects
+plt.suplot(2, 2, 1)
+plt.hist(diaObject_table[ff]['match_ang_dist'], color='black', 
+         label='matched', histtype='step', bins=bins, log=True)
+plt.hist(diaObject_table[~ff]['match_ang_dist'], color='red', 
+         label='FP', histtype='step', bins=bins, log=True)
+plt.xlabel('ang dist [arcsec]')
+plt.legend(loc='best')
+
+plt.suplot(2, 2, 2)
+
+plt.suplot(2, 2, 3)
+
+plt.suplot(2, 2, 4)
+
+bins=np.logspace(0, np.log10(np.max(diaObject_table['match_ang_dist'])), num=20)
+plt.hist(diaObject_table[ff]['match_ang_dist'], color='black', 
+         label='matched', histtype='step', bins=bins, log=True)
+plt.hist(diaObject_table[~ff]['match_ang_dist'], color='red', 
+         label='FP', histtype='step', bins=bins, log=True)
+plt.xlabel('ang dist [arcsec]')
+plt.legend(loc='best')
+
+
+
+#endregion ---------------------------------------------------------------------
+
 #region  -----------------------------------------------------------------------
-diaSrc_tab = diaSrc_store['new_tab']
-print(len(diaSrc_tab))
-print(np.sum(diaSrc_tab.epoch_matched), len(diaSrc_tab), 
-      np.sum(diaSrc_tab.epoch_matched)/len(diaSrc_tab))
-bogus = diaSrc_tab[~diaSrc_tab.epoch_matched]
-reals = diaSrc_tab[diaSrc_tab.epoch_matched]
+#diaSrcs_tab = diaSrc_store['new_tab']
+print(len(diaSrcs_tab))
+print(np.sum(diaSrcs_tab.epoch_matched), len(diaSrcs_tab), 
+      np.sum(diaSrcs_tab.epoch_matched)/len(diaSrcs_tab))
+bogus = diaSrcs_tab[~diaSrcs_tab.epoch_matched]
+reals = diaSrcs_tab[diaSrcs_tab.epoch_matched]
 #endregion  --------------------------------------------------------------------
 
-# to build the missed target samples we still need to unfold the table of
-# simulated lightcurves, using the column of snid_in+_epoch_DIAmatch
-# to do this we would need to iter over the 
-lcs = []
-for asn in sntab.itertuples():
-    asnid = asn.snid_in
-    asn_cols = [col for col in truth_lightc.columns if asnid+'_' in col]
-    translate = {}
-    for acol in asn_cols:
-        translate[acol] = acol[len(asnid)+1:]
-    asn_cols += ['mjd', 'filter', 'visitn']
-    snlightc = truth_lightc[asn_cols].copy()
-    if asnid+'_epoch_DIAmatch' not in snlightc.columns:
-        snlightc['epoch_DIAmatch'] = False
-    else:
-        translate[asnid+'_epoch_DIAmatch'] = 'epoch_DIAmatch'
-    snlightc.rename(columns=translate, inplace=True)
-    snlightc['SN_id'] = asnid
-    lcs.append(snlightc)
-snlcs = pd.concat(lcs)
-snlcs.to_csv('lightcurves/sn_matched_lcs.csv')
+
+
 #endregion
 cllc = snlcs.observable & snlcs.observed 
 cllc = cllc & (snlcs.filter!='y') & (snlcs.filter!='u')
