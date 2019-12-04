@@ -116,6 +116,16 @@ for tract, patches in tpatches:
         patch_i, patch_j = patch.getIndex()
         patch_str = '{},{}'.format(patch_i, patch_j)
         tpId = {'tract': tract.getId(), 'patch': patch_str}
+
+        ## ask for diaObject
+        try:
+            diaObject_table = diabutler.get('deepDiff_diaObject', 
+                                            dataId=tpId).asAstropy()
+            assoc_table.append(diabutler.get('deepDiff_diaObjectId', 
+                                             dataId=tpId).toDataFrame())
+        except:
+            print(tpId, 'failed \n')
+            continue
         
         ## get the t+p coordinate box corners
         tp_box = tract_info.getPatchInfo(patch.getIndex()).getOuterBBox()
@@ -137,15 +147,6 @@ for tract, patches in tpatches:
         SNtab = sntab.query(snq.format(min_ra, max_ra, min_dec, max_dec))
         sn_coord = SkyCoord(ra=SNtab.snra_in*u.deg, dec=SNtab.sndec_in*u.deg, 
                             frame='icrs')
-        ## ask for diaObject
-        try:
-            diaObject_table = diabutler.get('deepDiff_diaObject', 
-                                            dataId=tpId).asAstropy()
-            assoc_table.append(diabutler.get('deepDiff_diaObjectId', 
-                                             dataId=tpId).toDataFrame())
-        except:
-            print(tpId, 'failed \n')
-            continue
         diaO_coord = SkyCoord(ra=diaObject_table['coord_ra'], 
                               dec=diaObject_table['coord_dec'],
                               frame='icrs')
@@ -363,7 +364,7 @@ clean_snlc = snlcs[cllc]
 print(np.sum(snlcs.epoch_DIAmatch))
 
 
-
+assoc_table = []
 diaOtables = []
 for tract, patches in tpatches:
     tract_info = skymap[tract.getId()]
@@ -372,18 +373,16 @@ for tract, patches in tpatches:
         patch_i, patch_j = patch.getIndex()
         patch_str = '{},{}'.format(patch_i, patch_j)
         tpId = {'tract': tract.getId(), 'patch': patch_str}
-        
         try:
             diaObject_table = diabutler.get('deepDiff_diaObject', 
                                             dataId=tpId).asAstropy()
-            
             assoc_table.append(diabutler.get('deepDiff_diaObjectId', 
                                              dataId=tpId).toDataFrame())
+            diaOtables.append(diaObject_table)
         except:
             print(tpId, 'failed \n')
             continue
-
-        diaO_coord = SkyCoord(ra=diaObject_table['coord_ra'], 
-                              dec=diaObject_table['coord_dec'],
-                              frame='icrs')
+        #diaO_coord = SkyCoord(ra=diaObject_table['coord_ra'], 
+        #                      dec=diaObject_table['coord_dec'],
+        #                      frame='icrs')
 
