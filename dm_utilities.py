@@ -237,7 +237,6 @@ def find_available_tract_numbers(butler, known_existing_tract=4851, known_existi
     
     return tracts
 
-
 def plot_focal_plane(butler, visit, ax, color='red'):
     """
     Plot the CCDs in the LSST focal plane using the coordinate information in the calexps.
@@ -283,7 +282,6 @@ def plot_focal_plane(butler, visit, ax, color='red'):
         center = wcs.pixelToSky(ccd_box.getCenter()).getPosition(afwgeom.degrees)
     return ax
 
-
 def get_coadd_id_for_ra_dec(skymap, ra, dec):
     """
     Return a dict suitable for use as a data ID for a DM Butler
@@ -312,7 +310,6 @@ def get_coadd_id_for_ra_dec(skymap, ra, dec):
 
     return coadd_id
 
-
 def cutout_coadd_ra_dec(butler, ra, dec, filter='r', datasetType='deepCoadd', **kwargs):
     """
     Produce a cutout from coadd from the given butler at 
@@ -337,10 +334,9 @@ def cutout_coadd_ra_dec(butler, ra, dec, filter='r', datasetType='deepCoadd', **
     -------
     MaskedImage
     """
-    radec = afwGeom.SpherePoint(ra, dec, afwGeom.degrees)
+    radec = afwGeom.SpherePoint(float(ra), float(dec), afwGeom.degrees)
     return cutout_coadd_spherepoint(butler, radec, filter=filter, 
                                     datasetType=datasetType)
-    
 
 def cutout_coadd_spherepoint(butler, radec, filter='r', datasetType='deepCoadd',
                                   skymap=None, cutoutSideLength=51, **kwargs):
@@ -413,6 +409,7 @@ def make_cutout_image(butler, ra, dec, filter='r', vmin=None, vmax=None,
 
     cutout_image = cutout_coadd_ra_dec(butler, ra, dec, filter=filter, 
                                        datasetType='deepCoadd')
+
     if savefits:
         if isinstance(savefits, str):
             filename = savefits
@@ -443,8 +440,7 @@ def make_cutout_image(butler, ra, dec, filter='r', vmin=None, vmax=None,
         plt.show()
 
     return cutout_image
-    
-    
+
 def display_cutout_image(butler, ra, dec, vmin=None, vmax=None, label=None,
                       frame=None, display=None, backend='matplotlib',
                       show=True, saveplot=False, savefits=False,
@@ -492,3 +488,149 @@ def display_cutout_image(butler, ra, dec, vmin=None, vmax=None, label=None,
     display.show_colorbar()
     
     return cutout_image
+
+
+#region  --------------------------------- different MWV notebook functions ----
+def make_cutout_image2(butler, data_id, ra, dec,
+                      title=None,
+                      frame=None, display=None, backend='matplotlib',
+                      show=True, saveplot=False, savefits=False,
+                      zscale=None,
+                      dataset_type='deepCoadd',
+                      **kwargs):
+    """
+    Generate and optionally display and save a postage stamp for a given RA, Dec.
+    
+    Parameters
+    ----------
+    butler: lsst.daf.persistence.Butler
+        Servant providing access to a data repository
+    data_id:
+        DM Butler Data Id
+    ra: float
+        Right ascension of the center of the cutout, degrees
+    dec: float
+        Declination of the center of the cutout, degrees
+    filter: string 
+        Filter of the image to load
+    Returns
+    -------
+    MaskedImage
+
+    Notes
+    -----
+    Uses lsst.afw.display with matplotlib to generate stamps.  Saves FITS file if requested.
+    """
+    cutout_image = cutout_ra_dec2(butler, data_id, ra, dec, dataset_type=dataset_type, **kwargs)
+    
+    if savefits:
+        if isinstance(savefits, str):
+            filename = savefits
+        else:
+            filename = 'postage-stamp.fits'
+        cutout_image.writeFits(filename)
+    
+    radec = afwGeom.SpherePoint(ra, dec, afwGeom.degrees)
+    xy = cutout_image.getWcs().skyToPixel(radec)
+    
+    if display is None:
+        display = afwDisplay.Display(frame=frame, backend=backend)
+
+    display.mtv(cutout_image)
+    display.scale("linear", "zscale")
+    display.dot('o', xy.getX(), xy.getY(), ctype='red')
+    display.show_colorbar()
+
+    plt.xlabel('x')
+    plt.ylabel('y')
+    if title is not None:
+        plt.title(title)
+
+    if saveplot:
+        if isinstance(saveplot, str):
+            filename = saveplot
+        else:
+            filename = 'postage-stamp.png'
+        plt.savefig(filename)
+    if show:
+        plt.show()
+
+    return cutout_image
+
+def cutout_ra_dec2(butler, data_id, ra, dec, 
+                   dataset_type='deepDiff_differenceExp',
+                   cutout_size=75, warp_to_exposure=None, **kwargs):
+    """
+    Produce a cutout from dataset_type from the given butler at the given ra, dec
+    
+    Notes
+    -----
+    Trivial wrapper around 'cutout_spherepoint'
+    
+    Parameters
+    ----------
+    butler: lsst.daf.persistence.Butler
+        Loaded DM Butler providing access to a data repository
+    data_id: Butler data ID
+        E.g., {'visit': 1181556, 'detector': 45, 'filter': 'r'}
+    ra: float
+        Right ascension of the center of the cutout, degrees
+    dec: float
+        Declination of the center of the cutout, degrees
+    cutout_size: int [optional] 
+        Side of the cutout region in pixels.  Region will be cutout_size x cutout_size.
+    warp_to_exposure: optional
+        Warp coadd to system of specified 'exposure', e.g., the visit image, to warp the coadd to
+        before making the cutout.  The goal is to that a cut out of a coadd image
+        and a cutout of a visit image should line up.
+        'warp_to_exposure' overrides setting of 'cutout_size'.
+         
+    Returns
+    -------
+    MaskedImage
+    """
+    cutout_extent = afwGeom.ExtentI(cutout_size, cutout_size)
+    radec = afwGeom.SpherePoint(ra, dec, afwGeom.degrees)
+   
+    image = butler.get(dataset_type, dataId=data_id)
+
+    xy = afwGeom.PointI(image.getWcs().skyToPixel(radec))
+    bbox = afwGeom.BoxI(xy - cutout_extent//2, cutout_extent)
+    
+    if warp_to_exposure is not None:
+        warper = Warper(warpingKernelName='lanczos4')
+        cutout_image = warper.warpExposure(warp_to_exposure.getWcs(), image,
+                                           destBBox=warp_to_exposure.getBBox())
+    else:
+        cutout_image = image.getCutout(radec, cutout_extent)
+    
+    return cutout_image
+
+def get_coadd_id_for_ra_dec2(skymap, ra, dec):
+    """
+    Return a dict suitable for use as a data ID for a DM Butler
+
+    Parameters
+    ----------
+    skymap: lsst.afw.skyMap.SkyMap [optional] 
+        Pass in to avoid the Butler read.  Useful if you have lots of such reads.
+        The skymap is just used to get the appropriate tract, patch.
+        If you want to warp to a different frame, see `wcs`.
+    ra: float
+        Right ascension of the center of the cutout, degrees
+    dec: float
+        Declination of the center of the cutout, degrees
+    
+    Returns
+    -------
+    dict  - Suitable for use as a DM Butler data ID.
+    """   
+    # Look up the tract, patch for the RA, Dec
+    radec = SpherePoint(ra, dec, afwGeom.degrees)
+    tract_info = skymap.findTract(radec)
+    patch_info = tract_info.findPatch(radec)
+    coadd_id = {'tract': tract_info.getId(), 'patch': "%d,%d" % patch_info.getIndex()}
+
+    return coadd_id
+
+#endregion ---------------------------------------------------------------------

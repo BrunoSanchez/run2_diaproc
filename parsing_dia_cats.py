@@ -59,7 +59,7 @@ diabutler = Butler(forcerepo)
 truth_lightc = pd.read_csv('./lightcurves/lightcurves_cat_rect_58.0_56.0_-31.0_-32.0.csv')
 sntab = pd.read_csv('./catalogs+tables/supernovae_cat_rect_58.0_56.0_-31.0_-32.0.csv')
 
-diaSrc_store = pd.HDFStore('/global/cscratch1/sd/bos0109/diaSrc_fulltables.h5')
+diaSrc_store = pd.HDFStore('/global/cscratch1/sd/bos0109/diaSrc_fulltables_v2.h5')
 diaSrc_store.open()
 metacols = ['id', 'visit', 'filter', 'raftName', 'detectorName', 'detector']
 
@@ -385,47 +385,47 @@ for name, srccat in diaSrcs_tab.groupby(['visit_n', 'detector']):
 
 #endregion ---------------------------------------------------------------------
 
-#region  --------------------------------------- analyzing brightness of objects
-plt.suplot(2, 2, 1)
-plt.hist(diaObject_table[ff]['match_ang_dist'], color='black', 
-         label='matched', histtype='step', bins=bins, log=True)
-plt.hist(diaObject_table[~ff]['match_ang_dist'], color='red', 
-         label='FP', histtype='step', bins=bins, log=True)
-plt.xlabel('ang dist [arcsec]')
-plt.legend(loc='best')
+# #region  --------------------------------------- analyzing brightness of objects
+# plt.suplot(2, 2, 1)
+# plt.hist(diaObject_table[ff]['match_ang_dist'], color='black', 
+#          label='matched', histtype='step', bins=bins, log=True)
+# plt.hist(diaObject_table[~ff]['match_ang_dist'], color='red', 
+#          label='FP', histtype='step', bins=bins, log=True)
+# plt.xlabel('ang dist [arcsec]')
+# plt.legend(loc='best')
 
-plt.suplot(2, 2, 2)
+# plt.suplot(2, 2, 2)
 
-plt.suplot(2, 2, 3)
+# plt.suplot(2, 2, 3)
 
-plt.suplot(2, 2, 4)
+# plt.suplot(2, 2, 4)
 
-bins=np.logspace(0, np.log10(np.max(diaObject_table['match_ang_dist'])), num=20)
-plt.hist(diaObject_table[ff]['match_ang_dist'], color='black', 
-         label='matched', histtype='step', bins=bins, log=True)
-plt.hist(diaObject_table[~ff]['match_ang_dist'], color='red', 
-         label='FP', histtype='step', bins=bins, log=True)
-plt.xlabel('ang dist [arcsec]')
-plt.legend(loc='best')
-
-
-
-#endregion ---------------------------------------------------------------------
-
-#region  -----------------------------------------------------------------------
-#diaSrcs_tab = diaSrc_store['new_tab']
-print(len(diaSrcs_tab))
-print(np.sum(diaSrcs_tab.epoch_matched), len(diaSrcs_tab), 
-      np.sum(diaSrcs_tab.epoch_matched)/len(diaSrcs_tab))
-bogus = diaSrcs_tab[~diaSrcs_tab.epoch_matched]
-reals = diaSrcs_tab[diaSrcs_tab.epoch_matched]
-#endregion  --------------------------------------------------------------------
+# bins=np.logspace(0, np.log10(np.max(diaObject_table['match_ang_dist'])), num=20)
+# plt.hist(diaObject_table[ff]['match_ang_dist'], color='black', 
+#          label='matched', histtype='step', bins=bins, log=True)
+# plt.hist(diaObject_table[~ff]['match_ang_dist'], color='red', 
+#          label='FP', histtype='step', bins=bins, log=True)
+# plt.xlabel('ang dist [arcsec]')
+# plt.legend(loc='best')
 
 
 
-#endregion
-cllc = snlcs.observable & snlcs.observed 
-cllc = cllc & (snlcs.filter!='y') & (snlcs.filter!='u')
-clean_snlc = snlcs[cllc]
-print(np.sum(snlcs.epoch_DIAmatch))
+# #endregion ---------------------------------------------------------------------
+
+# #region  -----------------------------------------------------------------------
+# #diaSrcs_tab = diaSrc_store['new_tab']
+# print(len(diaSrcs_tab))
+# print(np.sum(diaSrcs_tab.epoch_matched), len(diaSrcs_tab), 
+#       np.sum(diaSrcs_tab.epoch_matched)/len(diaSrcs_tab))
+# bogus = diaSrcs_tab[~diaSrcs_tab.epoch_matched]
+# reals = diaSrcs_tab[diaSrcs_tab.epoch_matched]
+# #endregion  --------------------------------------------------------------------
+
+
+
+# #endregion
+# cllc = snlcs.observable & snlcs.observed 
+# cllc = cllc & (snlcs.filter!='y') & (snlcs.filter!='u')
+# clean_snlc = snlcs[cllc]
+# print(np.sum(snlcs.epoch_DIAmatch))
 

@@ -84,6 +84,7 @@ rect = [radec_NE, radec_NW, radec_SW, radec_SE]
 tpatches = skymap.findTractPatchList(rect)
 
 # iterating over tract and patches to build diaSrc catalogues
+metas = []
 path = os.path.join(diarepo, 'deepDiff')
 diffpath = 'v{}-f{}/{}/diaSrc_{}-{}-{}-{}-det{}.fits'
 for tract, patches in tpatches:
@@ -102,25 +103,28 @@ for tract, patches in tpatches:
         metadata = pd.DataFrame(metadata, columns=metacols)
         #metadata = metadata[metadata['filter']!='u']
         metadata = metadata[metadata['filter']!='y']
-        
-        cats = []
-        for idx, idr, vn, fna, raf, detN, det in metadata.itertuples():
-            #if fna=='y' or fna=='u': continue
-            pp = diffpath.format(str(vn).zfill(8), fna, raf, str(vn).zfill(8), 
-                                 fna, raf, detN, str(det).zfill(3))
-            dpath = os.path.join(path, pp)
-            if os.path.exists(dpath):
-                catalog = diabutler.get('deepDiff_diaSrc', visit=vn, 
-                                        detector=det).asAstropy()
-                if len(catalog) is not 0:
-                    catalog['visit_n'] = vn
-                    catalog['filter'] = fna
-                    catalog['raft'] = raf
-                    catalog['sensor'] = detN
-                    catalog['detector'] = det
-                    cats.append(catalog)
-        mastercat = vstack(cats)
-        mastercat = mastercat.to_pandas()
-        diaSrc_store[store_key] = mastercat
-        diaSrc_store.flush()
+        metas.append(metadata)
+metadata = pd.concat(metas).drop_duplicates()
+
+cats = []
+for idx, idr, vn, fna, raf, detN, det in metadata.itertuples():
+    #if fna=='y' or fna=='u': continue
+    pp = diffpath.format(str(vn).zfill(8), fna, raf, str(vn).zfill(8), 
+                            fna, raf, detN, str(det).zfill(3))
+    dpath = os.path.join(path, pp)
+    if os.path.exists(dpath):
+        catalog = diabutler.get('deepDiff_diaSrc', visit=vn, 
+                                detector=det).asAstropy()
+        if len(catalog) is not 0:
+            catalog['visit_n'] = vn
+            catalog['filter'] = fna
+            catalog['raft'] = raf
+            catalog['sensor'] = detN
+            catalog['detector'] = det
+            cats.append(catalog)
+mastercat = vstack(cats)
+mastercat = mastercat.to_pandas()
+#diaSrc_store[store_key] = mastercat
+diaSrc_store['new_table'] = mastercat
+diaSrc_store.flush()
 diaSrc_store.close()
