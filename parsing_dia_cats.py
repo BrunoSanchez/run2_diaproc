@@ -352,31 +352,38 @@ plt.close()
 #endregion ---------------------------------------------------------------------
 
 #region  -----------------------------get the calibration zeropoints------------
-meta = diabutler.queryMetadata('deepDiff_differenceExp_photoCalib', metacols)
-meta = pd.DataFrame(meta, columns=metacols)
-zeros = []
-for idx, idr, vn, fna, raf, detN, det in metadata.itertuples():
-    #if fna=='y' or fna=='u': continue
-    #pp = diffpath.format(str(vn).zfill(8), fna, raf, str(vn).zfill(8), 
-                            fna, raf, detN, str(det).zfill(3))
-    #dpath = os.path.join(path, pp)
-    #if os.path.exists(dpath):
-    try:
-        catalog = diabutler.get('deepDiff_differenceExp_photoCalib', visit=vn, 
-                                detector=det).asAstropy()
-        print(idx, idr, vn, fna, raf, detN, det)
-    except:
-        continue
-    if len(catalog) is not 0:
-        catalog['visit_n'] = vn
-        catalog['filter'] = fna
-        catalog['raft'] = raf
-        catalog['sensor'] = detN
-        catalog['detector'] = det
-        zeros.append(catalog)
-    if idx>30: break
-#endregion ---------------------------------------------------------------------
+fluxes_to_calibrate = ['base_PsfFlux_instFlux',
+                       'ip_diffim_forced_PsfFlux_instFlux',
+                       'base_CircularApertureFlux_3_0_instFlux',
+                       'base_CircularApertureFlux_4_5_instFlux',
+                       'base_CircularApertureFlux_6_0_instFlux',
+                       'base_CircularApertureFlux_9_0_instFlux',
+                       'base_CircularApertureFlux_12_0_instFlux', 
+                       'base_CircularApertureFlux_17_0_instFlux', 
+                       'base_CircularApertureFlux_25_0_instFlux']
+for aflux in fluxes_to_calibrate:
+    diaSrcs_tab[aflux+'_nJy'] = np.nan 
+    diaSrcs_tab[aflux+'_nJyErr'] = np.nan 
+    diaSrcs_tab[aflux+'_calMag'] = np.nan 
+    diaSrcs_tab[aflux+'_calMagErr'] = np.nan 
+    
+for name, srccat in diaSrcs_tab.groupby(['visit_n', 'detector']):
+    vn, det = name
+    photcal = diabutler.get('deepDiff_differenceExp_photoCalib', 
+                       visit=int(vn), detector=int(det))
 
+    for id_src, asrc in srccat.iterrows():
+        for aflux in fluxes_to_calibrate:
+            flux, err = asrc[aflux], asrc[aflux+'Err'] 
+            #print(flux, err)
+            cal = photcal.instFluxToMagnitude(flux, err)
+            diaSrcs_tab.loc[id_src, aflux+'_calMag'] = cal.value
+            diaSrcs_tab.loc[id_src, aflux+'_calMagErr'] = cal.error
+            cal = photcal.instFluxToNanojansky(flux, err)
+            diaSrcs_tab.loc[id_src, aflux+'_nJy'] = cal.value
+            diaSrcs_tab.loc[id_src, aflux+'_nJyErr'] = cal.error
+
+#endregion ---------------------------------------------------------------------
 
 #region  --------------------------------------- analyzing brightness of objects
 plt.suplot(2, 2, 1)
