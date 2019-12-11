@@ -59,7 +59,7 @@ diabutler = Butler(forcerepo)
 #truth_lightc = pd.read_csv('./lightcurves/lightcurves_cat_rect_58.0_56.0_-31.0_-32.0.csv')
 #sntab = pd.read_csv('./catalogs+tables/supernovae_cat_rect_58.0_56.0_-31.0_-32.0.csv')
 
-diaSrc_store = pd.HDFStore('/global/cscratch1/sd/bos0109/diaSrc_fulltables_v2.h5')
+diaSrc_store = pd.HDFStore('/global/cscratch1/sd/bos0109/forced_diaSrc_fulltables.h5')
 diaSrc_store.open()
 metacols = ['id', 'visit', 'filter', 'raftName', 'detectorName', 'detector']
 
@@ -99,22 +99,24 @@ for tract, patches in tpatches:
         if store_key in diaSrc_store: continue
         
         print('starting with ', tpId)
-        metadata = diabutler.queryMetadata('deepDiff_diaSrc',metacols,dataId=tpId)
+        metadata = diabutler.queryMetadata('deepDiff_diaSrc', metacols,dataId=tpId)
         metadata = pd.DataFrame(metadata, columns=metacols)
         #metadata = metadata[metadata['filter']!='u']
         metadata = metadata[metadata['filter']!='y']
+        metadata['tract'] = tpId['tract']
+        metadata['patch'] = tpId['patch']
         metas.append(metadata)
 metadata = pd.concat(metas).drop_duplicates()
 
 cats = []
-for idx, idr, vn, fna, raf, detN, det in metadata.itertuples():
+for idx, idr, vn, fna, raf, detN, det, t, p in metadata.itertuples():
     #if fna=='y' or fna=='u': continue
     pp = diffpath.format(str(vn).zfill(8), fna, raf, str(vn).zfill(8), 
                             fna, raf, detN, str(det).zfill(3))
     dpath = os.path.join(path, pp)
     if os.path.exists(dpath):
-        catalog = diabutler.get('deepDiff_diaSrc', visit=vn, 
-                                detector=det).asAstropy()
+        catalog = diabutler.get('deepDiff_forced_diaSrc', visit=vn, 
+                tract=int(t), patch=p, detector=det).asAstropy()
         if len(catalog) is not 0:
             catalog['visit_n'] = vn
             catalog['filter'] = fna

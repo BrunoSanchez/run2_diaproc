@@ -9,6 +9,7 @@ import numpy as np
 
 from astropy.table import Table
 
+from lsst.afw.math import Warper
 import lsst.daf.persistence as dafPersist
 import lsst.afw.geom as afwGeom
 import lsst.afw.coord as afwCoord
@@ -310,7 +311,8 @@ def get_coadd_id_for_ra_dec(skymap, ra, dec):
 
     return coadd_id
 
-def cutout_coadd_ra_dec(butler, ra, dec, filter='r', datasetType='deepCoadd', **kwargs):
+def cutout_coadd_ra_dec(butler, ra, dec, filter='r', 
+                        datasetType='deepCoadd', **kwargs):
     """
     Produce a cutout from coadd from the given butler at 
     the given RA, Dec in decimal degrees.
@@ -382,9 +384,9 @@ def cutout_coadd_spherepoint(butler, radec, filter='r', datasetType='deepCoadd',
     
     return cutout_image
     
-def make_cutout_image(butler, ra, dec, filter='r', vmin=None, vmax=None, 
-                      label=None, show=True, saveplot=False, savefits=False,
-                      datasetType='deepCoadd'):
+def make_plt_cutout_image(butler, ra, dec, filter='r', vmin=None, vmax=None, 
+                          label=None, show=True, saveplot=False, savefits=False,
+                          datasetType='deepCoadd'):
     """
     Generate and optionally display and save a postage stamp for a given RA, Dec.
     
@@ -404,7 +406,7 @@ def make_cutout_image(butler, ra, dec, filter='r', vmin=None, vmax=None,
 
     Notes
     -----
-    Uses matplotlib to generate stamps.  Saves FITS file if requested.
+    Uses macoaddtplotlib to generate stamps.  Saves FITS file if requested.
     """
 
     cutout_image = cutout_coadd_ra_dec(butler, ra, dec, filter=filter, 
@@ -436,6 +438,7 @@ def make_cutout_image(butler, ra, dec, filter='r', vmin=None, vmax=None,
         else:
             filename = 'postage-stamp.png'
         plt.savefig(filename)
+        plt.close()
     if show:
         plt.show()
 
@@ -491,77 +494,12 @@ def display_cutout_image(butler, ra, dec, vmin=None, vmax=None, label=None,
 
 
 #region  --------------------------------- different MWV notebook functions ----
-def make_cutout_image2(butler, data_id, ra, dec,
-                      title=None,
-                      frame=None, display=None, backend='matplotlib',
-                      show=True, saveplot=False, savefits=False,
-                      zscale=None,
-                      dataset_type='deepCoadd',
-                      **kwargs):
-    """
-    Generate and optionally display and save a postage stamp for a given RA, Dec.
-    
-    Parameters
-    ----------
-    butler: lsst.daf.persistence.Butler
-        Servant providing access to a data repository
-    data_id:
-        DM Butler Data Id
-    ra: float
-        Right ascension of the center of the cutout, degrees
-    dec: float
-        Declination of the center of the cutout, degrees
-    filter: string 
-        Filter of the image to load
-    Returns
-    -------
-    MaskedImage
-
-    Notes
-    -----
-    Uses lsst.afw.display with matplotlib to generate stamps.  Saves FITS file if requested.
-    """
-    cutout_image = cutout_ra_dec2(butler, data_id, ra, dec, dataset_type=dataset_type, **kwargs)
-    
-    if savefits:
-        if isinstance(savefits, str):
-            filename = savefits
-        else:
-            filename = 'postage-stamp.fits'
-        cutout_image.writeFits(filename)
-    
-    radec = afwGeom.SpherePoint(ra, dec, afwGeom.degrees)
-    xy = cutout_image.getWcs().skyToPixel(radec)
-    
-    if display is None:
-        display = afwDisplay.Display(frame=frame, backend=backend)
-
-    display.mtv(cutout_image)
-    display.scale("linear", "zscale")
-    display.dot('o', xy.getX(), xy.getY(), ctype='red')
-    display.show_colorbar()
-
-    plt.xlabel('x')
-    plt.ylabel('y')
-    if title is not None:
-        plt.title(title)
-
-    if saveplot:
-        if isinstance(saveplot, str):
-            filename = saveplot
-        else:
-            filename = 'postage-stamp.png'
-        plt.savefig(filename)
-    if show:
-        plt.show()
-
-    return cutout_image
-
-def cutout_ra_dec2(butler, data_id, ra, dec, 
+def cutout_ra_dec(butler, data_id, ra, dec, 
                    dataset_type='deepDiff_differenceExp',
                    cutout_size=75, warp_to_exposure=None, **kwargs):
     """
-    Produce a cutout from dataset_type from the given butler at the given ra, dec
+    Produce a cutout from dataset_type from the given butler at 
+    the given ra, dec
     
     Notes
     -----
@@ -606,31 +544,71 @@ def cutout_ra_dec2(butler, data_id, ra, dec,
     
     return cutout_image
 
-def get_coadd_id_for_ra_dec2(skymap, ra, dec):
+def make_display_cutout_image(butler, data_id, ra, dec, title=None, frame=None, 
+                              display=None, backend='matplotlib', show=True, 
+                              saveplot=False, savefits=False, zscale=None, 
+                              dataset_type='deepCoadd', **kwargs):
     """
-    Return a dict suitable for use as a data ID for a DM Butler
-
+    Generate and optionally display and save a postage stamp for a given RA, Dec.
+    
     Parameters
     ----------
-    skymap: lsst.afw.skyMap.SkyMap [optional] 
-        Pass in to avoid the Butler read.  Useful if you have lots of such reads.
-        The skymap is just used to get the appropriate tract, patch.
-        If you want to warp to a different frame, see `wcs`.
+    butler: lsst.daf.persistence.Butler
+        Servant providing access to a data repository
+    data_id:
+        DM Butler Data Id
     ra: float
         Right ascension of the center of the cutout, degrees
     dec: float
         Declination of the center of the cutout, degrees
-    
+    filter: string 
+        Filter of the image to load
     Returns
     -------
-    dict  - Suitable for use as a DM Butler data ID.
-    """   
-    # Look up the tract, patch for the RA, Dec
-    radec = SpherePoint(ra, dec, afwGeom.degrees)
-    tract_info = skymap.findTract(radec)
-    patch_info = tract_info.findPatch(radec)
-    coadd_id = {'tract': tract_info.getId(), 'patch': "%d,%d" % patch_info.getIndex()}
+    MaskedImage
 
-    return coadd_id
+    Notes
+    -----
+    Uses lsst.afw.display with matplotlib to generate stamps.  Saves FITS file if requested.
+    """
+    cutout_image = cutout_ra_dec(butler, data_id, ra, dec, 
+                                 dataset_type=dataset_type, **kwargs)
+    
+    if savefits:
+        if isinstance(savefits, str):
+            filename = savefits
+        else:
+            filename = 'postage-stamp.fits'
+        cutout_image.writeFits(filename)
+    
+    radec = afwGeom.SpherePoint(ra, dec, afwGeom.degrees)
+    xy = cutout_image.getWcs().skyToPixel(radec)
+    
+    if display is None:
+        display = afwDisplay.Display(frame=frame, backend=backend)
+
+    display.mtv(cutout_image)
+    display.scale("linear", "zscale")
+    display.dot('o', xy.getX(), xy.getY(), ctype='red')
+    display.show_colorbar()
+
+    plt.xlabel('x')
+    plt.ylabel('y')
+    plt.tight_layout()
+    #plt.colorbar()
+    if title is not None:
+        plt.title(title)
+
+    if saveplot:
+        if isinstance(saveplot, str):
+            filename = saveplot
+        else:
+            filename = 'postage-stamp.png'
+        plt.savefig(filename)
+        plt.close()
+    if show:
+        plt.show()
+    
+    return cutout_image
 
 #endregion ---------------------------------------------------------------------

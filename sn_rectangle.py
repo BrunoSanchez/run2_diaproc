@@ -91,7 +91,8 @@ def main(ramax=58, ramin=56, decmin=-32, decmax=-31, t0=59215, tm=61406):
                 'fiveSigmaDepth', 'expMJD']].copy()
         X.descDitheredRA = np.degrees(X.descDitheredRA)
         X.descDitheredDec = np.degrees(X.descDitheredDec)
-
+        X.descDitheredRotTelPos = np.degrees(X.descDitheredRotTelPos)
+        
         X['d1'] = angularSeparation(ramin, decmax, 
             X.descDitheredRA.values, X.descDitheredDec.values)
         X['d2'] = angularSeparation(ramin, decmin, 

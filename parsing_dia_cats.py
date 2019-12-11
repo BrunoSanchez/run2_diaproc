@@ -99,7 +99,7 @@ tpatches = skymap.findTractPatchList(rect)
 #store_key = str(tract.getId())+'_'+str(patch_i)+str(patch_j)
 # diaSrcs_tab = diaSrc_store['/4640_30']
 # diaSrc_store['new_tab'] = diaSrcs_tab
-diaSrcs_tab = diaSrc_store['new_tab']
+diaSrcs_tab = diaSrc_store['new_table']
 diaSrcs_tab['epoch_matched'] = False
 
 #region  -----------------------------------------------------------------------
@@ -201,12 +201,12 @@ for ic in range(len(cand_obj)):
     sn_N_detects = np.sum(truth_lightc[vep_col])
     sntab.loc[sntab.dia_id==diaC['id'], 'n_dia_detections'] = sn_N_detects
 
-diaSrc_store['new_tab'] = diaSrcs_tab
+diaSrc_store['new_table'] = diaSrcs_tab
 diaSrc_store.flush()
 print(N_matches, len(sntab), N_matches/len(sntab))
 #endregion ---------------------------------------------------------------------
 #endregion ---------------------------------------------------------------------
-diaObject_table.write('results/diaObject_table.csv', format='csv')                               
+diaObject_table.write('results/diaObject_table.csv', format='csv', overwrite=True)                               
 sntab.to_csv('results/sntab_matched.csv')
 
 #region --------------------------- bringing everything to same ra-dec frame ---
@@ -229,6 +229,8 @@ sq = sq & (diaSrcs_tab['coord_ra_deg'] <= 58)
 sq = sq & (diaSrcs_tab['coord_dec_deg'] >= -32) 
 sq = sq & (diaSrcs_tab['coord_dec_deg'] <= -31)
 diaSrcs_tab = diaSrcs_tab[sq]
+
+diaSrc_store['matched_tab'] = diaSrcs_tab 
 #endregion  --------------------------------------------------------------------
 
 #region ------------------------------------ unfolding the lightcurves ---------
@@ -367,10 +369,12 @@ for aflux in fluxes_to_calibrate:
     diaSrcs_tab[aflux+'_calMag'] = np.nan 
     diaSrcs_tab[aflux+'_calMagErr'] = np.nan 
     
-for name, srccat in diaSrcs_tab.groupby(['visit_n', 'detector']):
+for name, srccat in diaSrcs_tab.groupby(
+    ['visit_n', 'detector']):
     vn, det = name
+
     photcal = diabutler.get('deepDiff_differenceExp_photoCalib', 
-                       visit=int(vn), detector=int(det))
+                    visit=int(vn), detector=int(det))
 
     for id_src, asrc in srccat.iterrows():
         for aflux in fluxes_to_calibrate:
@@ -382,7 +386,9 @@ for name, srccat in diaSrcs_tab.groupby(['visit_n', 'detector']):
             cal = photcal.instFluxToNanojansky(flux, err)
             diaSrcs_tab.loc[id_src, aflux+'_nJy'] = cal.value
             diaSrcs_tab.loc[id_src, aflux+'_nJyErr'] = cal.error
-
+diaSrc_store['matched_tab'] = diaSrcs_tab
+diaSrc_store.flush()
+diaSrc_store.close()
 #endregion ---------------------------------------------------------------------
 
 # #region  --------------------------------------- analyzing brightness of objects
@@ -413,7 +419,7 @@ for name, srccat in diaSrcs_tab.groupby(['visit_n', 'detector']):
 # #endregion ---------------------------------------------------------------------
 
 # #region  -----------------------------------------------------------------------
-# #diaSrcs_tab = diaSrc_store['new_tab']
+# #diaSrcs_tab = diaSrc_store['new_table']
 # print(len(diaSrcs_tab))
 # print(np.sum(diaSrcs_tab.epoch_matched), len(diaSrcs_tab), 
 #       np.sum(diaSrcs_tab.epoch_matched)/len(diaSrcs_tab))

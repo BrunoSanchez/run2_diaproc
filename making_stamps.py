@@ -23,37 +23,185 @@
 #  
 # NEEDS TO RUN USING desc-dia 
 
+import os
+
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 
+from lsst.daf.persistence import Butler
+from importlib import reload
+
+import lsst.afw.geom as afwGeom
+import lsst.afw.cameraGeom
+import lsst.geom as geom
+from lsst.afw.geom import makeSkyWcs
+from lsst.obs.lsst.imsim import ImsimMapper
+
+from collections import OrderedDict as Odict
+
 import dm_utilities as dmu
+
+calexprepo = '/global/cscratch1/sd/desc/DC2/data/Run2.1i/rerun/calexp-v1' 
+b = Butler(calexprepo)
+skymap = b.get('deepCoadd_skyMap')
+
+template_repo = '/global/cscratch1/sd/bos0109/templates_rect'
+diarepo = template_repo + '/rerun/diff_rect'
+assocrepo = diarepo + '/rerun/assoc_sha'
+forcerepo = assocrepo + '/rerun/forcedPhot' 
+tmprepo = template_repo + '/rerun/multiband'
+
+diabutler = Butler(forcerepo)
+
+truth_lightc = pd.read_csv('./lightcurves/lightcurves_cat_rect_58.0_56.0_-31.0_-32.0.csv')
+sntab = pd.read_csv('./catalogs+tables/supernovae_cat_rect_58.0_56.0_-31.0_-32.0.csv')
+snlcs = pd.read_csv('lightcurves/sn_matched_lcs.csv')
+visitab = pd.read_csv('./catalogs+tables/full_t_visits_from_minion.csv')
+
+
 diaSrc_store = pd.HDFStore('/global/cscratch1/sd/bos0109/diaSrc_fulltables_v2.h5')
 diaSrc_store.open()
+diaSrcs_tab = diaSrc_store['matched_tab']
+basepaths = '/global/cscratch1/sd/bos0109/run2_stamps'
 
-isrc = 10
-diff_visit = diaSrcs_tab.iloc[isrc]
-ra, dec = diff_visit['coord_ra_deg'], diff_visit['coord_dec_deg']
-diff_id = {}
-# We have to convert from int64 to int to get the formatting to work right in the Gen 2 template string.
-diff_id['visit'] = int(diff_visit['visit_n'])
-diff_id['filter'] = diff_visit['filter']
-diff_id['detector'] = int(diff_visit['detector'])
+mapper = ImsimMapper()
+camera = mapper.camera
+trans = [detector.getTransform(lsst.afw.cameraGeom.cameraSys.PIXELS,
+         lsst.afw.cameraGeom.cameraSys.FIELD_ANGLE) for detector in camera]
+boxes = [detector.getBBox() for detector in camera]
+names = [detector.getName() for detector in camera]
+det_n = [detector.getId()   for detector in camera]
 
-skymap = diabutler.get("%s_skyMap" % dataset_type)
-coadd_id = dmu.get_coadd_id_for_ra_dec(skymap, ra, dec)
-coadd_id['filter'] = diff_id['filter']
+#region  -----------------------------------------------------------------------
+for isrc in range(len(diaSrcs_tab)):
+    diff_visit = diaSrcs_tab.iloc[isrc]
+    ra, dec = diff_visit['coord_ra_deg'], diff_visit['coord_dec_deg']
 
-dataset_type = 'deepCoadd'
-coadd_cutout = dmu.make_cutout_image(diabutler, float(ra), float(dec), 
-    datasetType=dataset_type, savefits='postage_src_{}_coadd.fits'.format(isrc),
-    saveplot='postage_src_{}_coadd.png'.format(isrc))
+    skymap = diabutler.get("deepCoadd_skyMap")
+    coadd_id = dmu.get_coadd_id_for_ra_dec(skymap, ra, dec)
+    coadd_id['filter'] = diff_visit['filter']
 
-coadd_cutout = dmu.make_cutout_image2(diabutler, coadd_id, float(ra), float(dec), 
-    datasetType=dataset_type, savefits='postage_src_{}_coadd.fits'.format(isrc),
-    saveplot='postage_src_{}_coadd.png'.format(isrc))
-science_cutout = dmu.make_cutout_image2(diabutler, diff_id, ra, dec, datasetType='calexp',
-    warp_to_exposure=coadd_cutout, title='science image', 
-    savefits='postage_src_{}_science.fits'.format(isrc), 
-    saveplot='postage_src_{}_scienc.png'.format(isrc))
+    diff_id = {}
+    diff_id['filter'] = diff_visit['filter']
+    diff_id['visit'] = int(diff_visit['visit_n'])
+    diff_id['detector'] = int(diff_visit['detector'])
+    diff_id['tract'] = coadd_id['tract']
+    diff_id['patch'] = coadd_id['patch']
+    #MJD={diff_visit['mjd']} 
+    coadd_title = f"diaSrc id={diff_visit['id']} visit={diff_visit['visit_n']} "
+    coadd_title +=f"filter={diff_visit['filter']} det={diff_visit['detector']} " 
+    coadd_title +=f"matched: {diff_visit['epoch_matched']} " 
+                   
+    coaddstamp_p = basepaths + f'/stamps/diaSrc/stamp_{str(isrc).zfill(6)}_coadd'
+    coadd_cutout = dmu.make_display_cutout_image(diabutler, coadd_id, 
+        float(ra), float(dec), dataset_type='deepCoadd', title='Coadd '+coadd_title,
+        savefits=coaddstamp_p+'.fits', saveplot=coaddstamp_p+'.png')
+
+    scienstamp_p = basepaths + f'/stamps/diaSrc/stamp_{str(isrc).zfill(6)}_scien'
+    science_cutout = dmu.make_display_cutout_image(diabutler, diff_id, 
+        float(ra), float(dec), 
+        dataset_type='calexp', warp_to_exposure=coadd_cutout, 
+        title='science '+coadd_title, savefits=scienstamp_p+'.fits', 
+        saveplot=scienstamp_p+'.png')
+    
+    diffstamp_p = basepaths + f'/stamps/diaSrc/stamp_{str(isrc).zfill(6)}_diff'
+    cutout_diff = dmu.make_display_cutout_image(diabutler, diff_id, 
+        float(ra), float(dec), 
+        dataset_type='deepDiff_differenceExp', warp_to_exposure=coadd_cutout, 
+        title='Diff '+coadd_title, savefits=diffstamp_p+'.fits', 
+        saveplot=diffstamp_p+'.png')
+#endregion ---------------------------------------------------------------------
+    
+#region  -----------------------------------------------------------------------
+stamp_path = os.path.abspath('/global/cscratch1/sd/bos0109/run2_stamps/')
+skymap = diabutler.get("deepCoadd_skyMap")
+visit_box = Odict()
+for asn in sntab[sntab.N_trueobserv>0].itertuples():
+    ra, dec = asn.snra_in, asn.sndec_in
+    sn_skyp = afwGeom.SpherePoint(ra, dec, afwGeom.degrees)
+
+    lc = snlcs[snlcs.SN_id==asn.snid_in]
+    lc = lc[lc.observed]
+    lc = lc[lc['filter']!='y']
+    lc = lc[lc['filter']!='u']
+    
+    sndir = os.path.join(stamp_path, f'SN_stamps/{asn.snid_in}')
+    if not os.path.exists(sndir):
+        os.makedirs(sndir)
+    head = f'id={asn.snid_in}_z={asn.z_in}_mB={asn.mB}_x0={asn.x0_in}_x1={asn.x1_in}_c={asn.c_in}.snhead'
+    open(os.path.join(sndir, head), 'w')
+
+    coadd_id = dmu.get_coadd_id_for_ra_dec(skymap, ra, dec)
+    for afilter, flcurve in lc.groupby('filter'):
+        fpath = os.path.join(sndir, afilter)
+        if not os.path.exists(fpath):
+            os.makedirs(fpath)
+        coadd_id['filter'] = afilter
+        stamp_title = f"Coadd SN id={asn.snid_in} filter={afilter} " 
+        
+        coaddstamp_p = os.path.join(fpath, f'stamp_{asn.snid_in}_coadd')
+        coadd_cutout = dmu.make_display_cutout_image(diabutler, coadd_id, 
+            float(ra), float(dec), dataset_type='deepCoadd', title=stamp_title,
+            savefits=coaddstamp_p+'.fits', saveplot=coaddstamp_p+'.png')
+
+        for anepoch in flcurve.itertuples():
+            epochdir = os.path.join(fpath, f'{anepoch.visitn}')
+            if not os.path.exists(epochdir):
+                os.makedirs(epochdir)
+            head = f'mag={anepoch.mag}_id={asn.snid_in}_z={asn.z_in}_mB={asn.mB}.epochhead'
+            open(os.path.join(epochdir, head), 'w')
+            #region  ----------------------------just to find detector number---
+            if anepoch.visitn not in visit_box.keys():
+                visitf = visitab[visitab.obsHistID==anepoch.visitn]
+                bsight = geom.SpherePoint(visitf.descDitheredRA.values[0]*geom.degrees, 
+                                          visitf.descDitheredDec.values[0]*geom.degrees)
+                orient = visitf.descDitheredRotTelPos.values[0]*geom.degrees
+    
+                wcs_list = [makeSkyWcs(t, orient, flipX=True, boresight=bsight,
+                                        projection='TAN') for t in trans]
+                visit_box[anepoch.visitn] = [bsight, orient, wcs_list]
+            else:
+                bsight, orient, wcs_list = visit_box[anepoch.visitn]
+            
+            det_c = [det for det, box, wcs in zip(det_n, boxes, wcs_list) if \
+                     box.contains(afwGeom.Point2I(wcs.skyToPixel(sn_skyp)))]
+            if len(det_c) > 1:
+                print('more than 1 detector')
+                break
+            else: 
+                detector = det_c[0]
+            #endregion ---------------------------------------------------------
+            
+            try:                
+                diff_id = {}
+                diff_id['filter'] = afilter
+                diff_id['visit'] = int(anepoch.visitn)
+                diff_id['detector'] = int(detector)  # int(diff_visit['detector'])
+                diff_id['tract'] = coadd_id['tract']
+                diff_id['patch'] = coadd_id['patch']
+                
+                stamp_title = f"SN id={asn.snid_in} visit={anepoch.visitn} "
+                stamp_title +=f"MJD = {anepoch.mjd} \n"
+                stamp_title +=f"filter={anepoch.filter} det={detector} " 
+                stamp_title +=f"matched: {anepoch.epoch_DIAmatch} " 
+
+                scienstamp_p = os.path.join(epochdir, f'snid_{asn.snid_in}_mjd_{anepoch.mjd}_scien')
+                science_cutout = dmu.make_display_cutout_image(diabutler, diff_id, 
+                    float(ra), float(dec), dataset_type='calexp', warp_to_exposure=coadd_cutout, 
+                    title='science '+stamp_title, savefits=scienstamp_p+'.fits', 
+                    saveplot=scienstamp_p+'.png')
+                
+                diffstamp_p = os.path.join(epochdir, f'snid_{asn.snid_in}_mjd_{anepoch.mjd}_diff')
+                cutout_diff = dmu.make_display_cutout_image(diabutler, diff_id, 
+                    float(ra), float(dec), 
+                    dataset_type='deepDiff_differenceExp', warp_to_exposure=coadd_cutout, 
+                    title='Diff '+stamp_title, savefits=diffstamp_p+'.fits', 
+                    saveplot=diffstamp_p+'.png')
+                
+            except:
+                continue
+            
+#endregion ---------------------------------------------------------------------
+
 
