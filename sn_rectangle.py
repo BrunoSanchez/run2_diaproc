@@ -31,7 +31,11 @@ import lsst.afw.geom as afwGeom
 import lsst.afw.cameraGeom
 import lsst.geom as geom
 
+from lsst.afw.geom import makeSkyWcs
+from lsst.obs.lsst.imsim import ImsimMapper
+
 from lsst.sims.utils import angularSeparation
+from lsst.sims.utils import getRotSkyPos
 from lsst.sims.catUtils import supernovae
 from lsst.sims.catUtils.supernovae import SNObject
 from lsst.sims.catUtils.utils import ObservationMetaDataGenerator
@@ -40,8 +44,6 @@ from lsst.sims.photUtils.Sed import Sed
 from lsst.sims.photUtils.BandpassDict import BandpassDict
 from lsst.sims.photUtils.SignalToNoise import calcSNR_m5, calcMagError_m5
 from lsst.sims.photUtils.PhotometricParameters import PhotometricParameters
-from lsst.afw.geom import makeSkyWcs
-from lsst.obs.lsst.imsim import ImsimMapper
 
 from collections import OrderedDict as Odict
 from astropy import time
@@ -75,36 +77,50 @@ def main(ramax=58, ramin=56, decmin=-32, decmax=-31, t0=59215, tm=61406):
     sntab = pd.read_sql_query(query, conn)
     #sntab.to_csv('./catalogs+tables/sn_cat_rectangle.csv')
 
-    if os.path.isfile('./catalogs+tables/full_t_visits_from_minion.csv'):
-        visitab = pd.read_csv('./catalogs+tables/full_t_visits_from_minion.csv')
-    else:
-        res = ObsMetaData.getObservationMetaData(boundLength=2, boundType='circle', 
-                                            fieldRA=(ramin-3, ramax+3), 
-                                            fieldDec=(decmin-3, decmax+3), 
-                                            expMJD=(t0, tm))
-        parsed = [Odict(obsmd.summary['OpsimMetaData']) for obsmd in res]
-        df = pd.DataFrame(parsed)
-        df = df[df['filter'].isin(('g', 'r', 'i', 'z', 'y'))]
+    #if os.path.isfile('./catalogs+tables/full_t_visits_from_minion.csv'):
+    #    visitab = pd.read_csv('./catalogs+tables/full_t_visits_from_minion.csv')
+    #else:
+    res = ObsMetaData.getObservationMetaData(boundLength=2, boundType='circle', 
+                                        fieldRA=(ramin-3, ramax+3), 
+                                        fieldDec=(decmin-3, decmax+3), 
+                                        expMJD=(t0, tm))
+    parsed = [Odict(obsmd.summary['OpsimMetaData']) for obsmd in res]
+    for obsmd, summ in zip(res, parsed):
+        ditherRa = np.rad2deg(summ['descDitheredRA'])
+        ditherDec = np.rad2deg(summ['descDitheredDec'])
+        ditherRot = np.rad2deg(summ['descDitheredRotTelPos'])
+        summ['descDitheredRotSkyPos'] =  getRotSkyPos(ditherRa, ditherDec, 
+                                                        obsmd, ditherRot)
 
-        X = df[['obsHistID', 'filter', 'FWHMeff', 'descDitheredRA', 
-                'descDitheredDec', 'descDitheredRotTelPos', 'airmass', 
-                'fiveSigmaDepth', 'expMJD']].copy()
-        X.descDitheredRA = np.degrees(X.descDitheredRA)
-        X.descDitheredDec = np.degrees(X.descDitheredDec)
-        X.descDitheredRotTelPos = np.degrees(X.descDitheredRotTelPos)
-        
-        X['d1'] = angularSeparation(ramin, decmax, 
-            X.descDitheredRA.values, X.descDitheredDec.values)
-        X['d2'] = angularSeparation(ramin, decmin, 
-            X.descDitheredRA.values, X.descDitheredDec.values)
-        X['d3'] = angularSeparation(ramax, decmax, 
-            X.descDitheredRA.values, X.descDitheredDec.values)
-        X['d4'] = angularSeparation(ramax, decmin, 
-            X.descDitheredRA.values, X.descDitheredDec.values)
-        visitab = X.query('d1 < 1.75 | d2 < 1.75 | d3 < 1.75 |d4 < 1.75')
-        del(X)
-        del(df)
-        visitab.to_csv('./catalogs+tables/full_t_visits_from_minion.csv')
+    df = pd.DataFrame(parsed)
+    df = df[df['filter'].isin(('g', 'r', 'i', 'z'))]
+
+    X = df[['obsHistID', 'filter', 'FWHMeff', 'descDitheredRA', 
+            'descDitheredDec', 'descDitheredRotTelPos', 'airmass', 
+            'fiveSigmaDepth', 'expMJD', 'descDitheredRotSkyPos',
+            'fieldRA', 'fieldDec', 'rotSkyPos', 'rotTelPos']].copy()
+    X.descDitheredRA = np.rad2deg(X.descDitheredRA)
+    X.descDitheredDec = np.rad2deg(X.descDitheredDec)
+    X.descDitheredRotTelPos = np.rad2deg(X.descDitheredRotTelPos)
+    #X.descDitheredRotSkyPos = np.rad2deg(X.descDitheredRotSkyPos) already in deg
+
+    X.fieldRA = np.rad2deg(X.fieldRA)
+    X.fieldDec = np.rad2deg(X.fieldDec)
+    X.rotTelPos = np.rad2deg(X.rotTelPos)
+    X.rotSkyPos = np.rad2deg(X.rotSkyPos)
+
+    X['d1'] = angularSeparation(ramin, decmax, 
+        X.descDitheredRA.values, X.descDitheredDec.values)
+    X['d2'] = angularSeparation(ramin, decmin, 
+        X.descDitheredRA.values, X.descDitheredDec.values)
+    X['d3'] = angularSeparation(ramax, decmax, 
+        X.descDitheredRA.values, X.descDitheredDec.values)
+    X['d4'] = angularSeparation(ramax, decmin, 
+        X.descDitheredRA.values, X.descDitheredDec.values)
+    visitab = X.query('d1 < 1.75 | d2 < 1.75 | d3 < 1.75 |d4 < 1.75')
+    del(X)
+    del(df)
+    visitab.to_csv('./catalogs+tables/full_t_visits_from_minion.csv')
     # setting the observation telescope status
     boresight = []
     orientation = []
@@ -112,8 +128,8 @@ def main(ramax=58, ramin=56, decmin=-32, decmax=-31, t0=59215, tm=61406):
     for avisit in visitab.itertuples():
         bsight = geom.SpherePoint(avisit.descDitheredRA*geom.degrees, 
                                   avisit.descDitheredDec*geom.degrees)
-        orient = avisit.descDitheredRotTelPos*lsst.geom.degrees
-        
+        orient = avisit.descDitheredRotSkyPos*geom.degrees
+
         wcs_list.append([makeSkyWcs(t, orient, flipX=True, boresight=bsight,
                        projection='TAN') for t in trans])
         orientation.append(orient)
@@ -132,8 +148,11 @@ def main(ramax=58, ramin=56, decmin=-32, decmax=-31, t0=59215, tm=61406):
 
         sn_skyp = afwGeom.SpherePoint(asn.snra_in, asn.sndec_in, afwGeom.degrees)
     
-        sn_flxs = []; sn_mags = []; sn_flxe = []
-        sn_mage = []; sn_obsrvd = []; sn_observable = []
+        size = len(times)
+        sn_flxs = np.zeros(size); sn_mags = np.zeros(size); 
+        sn_flxe = np.zeros(size); sn_mage = np.zeros(size); 
+        sn_obsrvd = []; sn_observable = []
+        ii = 0
         for mjd, filt, wcsl, m5 in zip(times, bands, wcs_list, depths):
             flux = sn_mod.catsimBandFlux(mjd, LSST_BPass[filt])
             mag = sn_mod.catsimBandMag(LSST_BPass[filt], mjd, flux)
@@ -149,10 +168,11 @@ def main(ramax=58, ramin=56, decmin=-32, decmax=-31, t0=59215, tm=61406):
             #     print('Overlaps ccd', names[np.where(contain)[0][0]])      
             sn_observable.append(observable)      
             sn_obsrvd.append(observed)
-            sn_flxs.append(flux)  # done
-            sn_mags.append(mag)
-            sn_flxe.append(flux_er)
-            sn_mage.append(mag_er)
+            sn_flxs[ii] = flux  # done
+            sn_mags[ii] = mag
+            sn_flxe[ii] = flux_er
+            sn_mage[ii] = mag_er
+            ii+=1
         
         data_cols[asn.snid_in+'_observable'] = sn_observable
         data_cols[asn.snid_in+'_observed'] = sn_obsrvd
@@ -170,10 +190,9 @@ def main(ramax=58, ramin=56, decmin=-32, decmax=-31, t0=59215, tm=61406):
     dest_snfile = './catalogs+tables/supernovae_cat_rect_{}_{}_{}_{}.csv'
     sntab.to_csv(dest_snfile.format(ramax, ramin, decmax, decmin))
     print("""Stored the lightcurves in {}, 
-             the SN catalog in {}""".format(dest_lc.format(ramax, ramin, 
-                                                           decmax, decmin), 
-                                            dest_snfile.format(ramax, ramin, 
-                                                               decmax, decmin)))
+             the SN catalog in {}""".format(
+                dest_lc.format(ramax, ramin, decmax, decmin), 
+                dest_snfile.format(ramax, ramin, decmax, decmin)))
     return 
 
 

@@ -56,10 +56,13 @@ tmprepo = template_repo + '/rerun/multiband'
 
 diabutler = Butler(forcerepo)
 
-truth_lightc = pd.read_csv('./lightcurves/lightcurves_cat_rect_58.0_56.0_-31.0_-32.0.csv')
-sntab = pd.read_csv('./catalogs+tables/supernovae_cat_rect_58.0_56.0_-31.0_-32.0.csv')
+#truth_lightc = pd.read_csv('./lightcurves/lightcurves_cat_rect_58.0_56.0_-31.0_-32.0.csv')
+#sntab = pd.read_csv('./catalogs+tables/supernovae_cat_rect_58.0_56.0_-31.0_-32.0.csv')
+truth_lightc = pd.read_csv('./lightcurves/lightcurves_cat_rect_58_56_-31_-32.csv')
+sntab = pd.read_csv('./catalogs+tables/supernovae_cat_rect_58_56_-31_-32.csv')
 
-diaSrc_store = pd.HDFStore('/global/cscratch1/sd/bos0109/diaSrc_fulltables_v2.h5')
+
+diaSrc_store = pd.HDFStore('/global/cscratch1/sd/bos0109/diaSrc_fulltables_v3.h5')
 diaSrc_store.open()
 metacols = ['id', 'visit', 'filter', 'raftName', 'detectorName', 'detector']
 
@@ -97,11 +100,12 @@ tpatches = skymap.findTractPatchList(rect)
 # I have found out that every t+p contains the same information, a single 
 # table of length 947602
 #store_key = str(tract.getId())+'_'+str(patch_i)+str(patch_j)
-# diaSrcs_tab = diaSrc_store['/4640_30']
-# diaSrc_store['new_tab'] = diaSrcs_tab
+diaSrcs_tab = diaSrc_store['full_table']
+diaSrc_store['new_table'] = diaSrcs_tab
+
 diaSrcs_tab = diaSrc_store['new_table']
 diaSrcs_tab['epoch_matched'] = False
-
+diaSrc_store.flush()
 #region  -----------------------------------------------------------------------
 ## iterating over every tract and patch
 d_tol = 2.5*u.arcsec
@@ -179,9 +183,12 @@ for ic in range(len(cand_obj)):
     # search for dia epochs:
     diaSrcs_ids = assoc_table[assoc_table['diaObjectId']==diaC['id']]
     # query for each epoch
+    # take care of u, and y filter empty rows
     dia_lc = []
     for anid in diaSrcs_ids['diaSrcIds'].values[0]:
-        dia_lc.append(diaSrcs_tab.query('id == {}'.format(anid)))
+        srcepoch = diaSrcs_tab.query('id == {}'.format(anid))
+        if len(srcepoch) is not 0:
+            dia_lc.append(srcepoch)
     # search for SN epochs
     snC_lc = get_truth_LC(truth_lightc, snC.snid_in.values[0])
     sn_epoch_match = np.repeat(False, len(snC_lc))
@@ -352,6 +359,8 @@ plt.tight_layout()
 plt.savefig('diaO_table.png')
 plt.close()
 #endregion ---------------------------------------------------------------------
+diaSrc_store['matched_tab'] = diaSrcs_tab
+diaSrc_store.flush()
 
 #region  -----------------------------get the calibration zeropoints------------
 fluxes_to_calibrate = ['base_PsfFlux_instFlux',
