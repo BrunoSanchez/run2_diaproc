@@ -18,13 +18,13 @@ import lsst.afw.display as afwDisplay
 import lsst.afw.cameraGeom as cameraGeom
 
 
-# # The lsst_sims code issues some ignorable warnings regarding ids used for querying the object
-# # databases.
-# with warnings.catch_warnings():
-#     warnings.simplefilter("ignore")
-#     import lsst.sims.coordUtils
-#     from lsst.sims.catUtils.utils import ObservationMetaDataGenerator
-#     from lsst.sims.utils import getRotSkyPos
+# The lsst_sims code issues some ignorable warnings regarding ids used for querying the object
+# databases.
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    import lsst.sims.coordUtils
+    from lsst.sims.catUtils.utils import ObservationMetaDataGenerator
+    from lsst.sims.utils import getRotSkyPos
     
 # from desc_dc2_dm_data import REPOS
 
@@ -32,6 +32,7 @@ from astropy.visualization import ZScaleInterval
 zscale = ZScaleInterval()
 
 import matplotlib.pyplot as plt
+from matplotlib.path import Path
 import matplotlib.patches as patches
 
 
@@ -53,7 +54,7 @@ def make_patch(vertexList, wcs=None):
     plot a patch.
     """
     if wcs is not None:
-        skyPatchList = [wcs.pixelToSky(pos).getPosition(afwgeom.degrees)
+        skyPatchList = [wcs.pixelToSky(pos).getPosition(afwGeom.degrees)
                         for pos in vertexList]
     else:
         skyPatchList = vertexList
@@ -89,7 +90,7 @@ def plot_skymap_tract(skyMap, tract=0, title=None, ax=None, nvisits_tab=None):
     if title is None:
         title = 'tract {}'.format(tract)
     tractInfo = skyMap[tract]
-    tractBox = afwgeom.Box2D(tractInfo.getBBox())
+    tractBox = afwGeom.Box2D(tractInfo.getBBox())
     tractPosList = tractBox.getCorners()
     wcs = tractInfo.getWcs()
     xNum, yNum = tractInfo.getNumPatches()
@@ -99,19 +100,19 @@ def plot_skymap_tract(skyMap, tract=0, title=None, ax=None, nvisits_tab=None):
         ax = fig.add_subplot(111)
 
     tract_center = wcs.pixelToSky(tractBox.getCenter())\
-                      .getPosition(afw_geom.degrees)
+                      .getPosition(afwGeom.degrees)
     ax.text(tract_center[0], tract_center[1], '%d' % tract, size=16,
             ha="center", va="center", color='blue')
     for x in range(xNum):
         for y in range(yNum):
             patchInfo = tractInfo.getPatchInfo([x, y])
-            patchBox = afwgeom.Box2D(patchInfo.getOuterBBox())
+            patchBox = afwGeom.Box2D(patchInfo.getOuterBBox())
             pixelPatchList = patchBox.getCorners()
             path = make_patch(pixelPatchList, wcs)
             patch = patches.PathPatch(path, alpha=0.1, lw=1)
             ax.add_patch(patch)
             center = wcs.pixelToSky(patchBox.getCenter())\
-                        .getPosition(afw_geom.degrees)
+                        .getPosition(afwGeom.degrees)
             if nvisits_tab is not None:
                 nvisits = nvisits_tab[(nvisits_tab.tract==tract)&(nvisits_tab.patch_x==x)&(nvisits_tab.patch_y==y)].nvisits
                 ax.text(center[0], center[1], '%d'%nvisits, size=6,
@@ -120,7 +121,7 @@ def plot_skymap_tract(skyMap, tract=0, title=None, ax=None, nvisits_tab=None):
                 ax.text(center[0], center[1], '%d,%d'%(x,y), size=6,
                         ha="center", va="center")
 
-    skyPosList = [wcs.pixelToSky(pos).getPosition(afw_geom.degrees)
+    skyPosList = [wcs.pixelToSky(pos).getPosition(afwGeom.degrees)
                   for pos in tractPosList]
     ax.set_xlim(max(coord[0] for coord in skyPosList) + 1,
                 min(coord[0] for coord in skyPosList) - 1)
@@ -191,7 +192,7 @@ def plot_focal_plane_fast(butler, visit, ax, color='red', opsimdb=None):
     # the location on disk of all of the calexps for this visit.
     dataref = list(butler.subset('calexp', visit=visit))[0]
     calexp_path = os.path.dirname(os.path.dirname(dataref.get('calexp_filename')[0]))
-    
+    basename = os.path.basename(calexp_path)
     # The following code is specific to the obs_lsstSim package and how it names CCDs
     # (e.g., "R:2,2 S:1,1") and formulates the path components for writing to disk.  This
     # code would not work for a different obs_ package/camera implementation.
@@ -203,40 +204,22 @@ def plot_focal_plane_fast(butler, visit, ax, color='red', opsimdb=None):
         if det.getType() != cameraGeom.SCIENCE:
             continue
         detname = det.getName()
+        detnum = str(det.getId()).zfill(3)
         raft, sensor = re.match(r'R:?(\d,?\d)[_ ]S:?(\d,?\d)', detname).groups()
         raft = 'R' + raft.replace(',', '')
-        sensor = 'S{}.fits'.format(sensor.replace(',', ''))
-        if os.path.isfile(os.path.join(calexp_path, raft, sensor)):
+        #sensor = 'S{}.fits'.format(sensor.replace(',', ''))
+        #sensor = 'calexp_{}-{}-{}-det{}.fits'.format(str(visit).zfill(8), raft, detnum)
+        detnn = detname.replace('_', '-')
+        filename = f'calexp_{basename}-{detnn}-det{detnum}.fits'
+        #print(filename)
+        #print(os.path.join(calexp_path, raft, filename))
+        if os.path.isfile(os.path.join(calexp_path, raft, filename)):
             corners = np.array(lsst.sims.coordUtils.getCornerRaDec(detname, camera, obs_md))
             path = make_patch(corners[corner_index])
             ccd = patches.PathPatch(path, alpha=0.2, lw=1, color=color)
             ax.add_patch(ccd)
     
     return ax
-
-def find_available_tract_numbers(butler, known_existing_tract=4851, known_existing_patch='0,0', known_existing_filter='i'):
-    """
-    This is a hack to search the coadd folder for the tracts that have data.
-    Unfortunately, this information is not directly accessible from the data butler. 
-    
-    In order for this hack to work, one needs to provide a known existing tract, patch, filter. 
-    """
- 
-    ref_path = butler.getUri('deepCoadd_forced_src', tract=known_existing_tract, patch=known_existing_patch, filter=known_existing_filter)
-
-    ref_path, success, _ = ref_path.partition('/{}/{}'.format(known_existing_tract, known_existing_patch))
-    tract_pattern = re.compile('(\d+)$')
-    if not success:
-        ref_path, success, _ = ref_path.partition('/{}_t{}_p{}'.format(known_existing_filter, known_existing_tract, known_existing_patch))
-        tract_pattern = re.compile('\w_t(\d+)_p')
-    if not success:
-        raise ValueError('cannot regonize path format')
-
-    coadd_path_subdirs = [d for d in os.listdir(ref_path) if os.path.isdir(os.path.join(ref_path, d)) and tract_pattern.match(d)]
-    tract_numbers = [int(tract_pattern.match(d).groups()[0]) for d in coadd_path_subdirs]
-    tracts = sorted(set(tract_numbers))
-    
-    return tracts
 
 def plot_focal_plane(butler, visit, ax, color='red'):
     """
@@ -267,7 +250,7 @@ def plot_focal_plane(butler, visit, ax, color='red'):
     # a unique dataset would specify visit, raft, and sensor.  If we just give the visit, then
     # references to the available data for all of the CCDs would be returned.
     dataId = dict(visit=visit)
-    datarefs = list(butler.subset('calexp', dataId=dataid))
+    datarefs = list(butler.subset('calexp', dataId=dataId))
     for i, dataref in enumerate(datarefs):
         calexp = dataref.get('calexp')
         # We're not going to do anything with it here, but we can get the PSF from the calexp
@@ -275,13 +258,37 @@ def plot_focal_plane(butler, visit, ax, color='red'):
         # psf = calexp.getPsf()
         # and we can get the zero-point (in ADU) like this
         # zero_point = calexp.getCalib().getFluxMag0()
-        ccd_box = afwgeom.Box2D(calexp.getBBox())
+        ccd_box = afwGeom.Box2D(calexp.getBBox())
         wcs = calexp.getWcs()
         path = make_patch(ccd_box.getCorners(), wcs)
         ccd = patches.PathPatch(path, alpha=0.2, lw=1, color=color)
         ax.add_patch(ccd)
-        center = wcs.pixelToSky(ccd_box.getCenter()).getPosition(afwgeom.degrees)
+        center = wcs.pixelToSky(ccd_box.getCenter()).getPosition(afwGeom.degrees)
     return ax
+
+def find_available_tract_numbers(butler, known_existing_tract=4851, known_existing_patch='0,0', known_existing_filter='i'):
+    """
+    This is a hack to search the coadd folder for the tracts that have data.
+    Unfortunately, this information is not directly accessible from the data butler. 
+    
+    In order for this hack to work, one needs to provide a known existing tract, patch, filter. 
+    """
+ 
+    ref_path = butler.getUri('deepCoadd_forced_src', tract=known_existing_tract, patch=known_existing_patch, filter=known_existing_filter)
+
+    ref_path, success, _ = ref_path.partition('/{}/{}'.format(known_existing_tract, known_existing_patch))
+    tract_pattern = re.compile('(\d+)$')
+    if not success:
+        ref_path, success, _ = ref_path.partition('/{}_t{}_p{}'.format(known_existing_filter, known_existing_tract, known_existing_patch))
+        tract_pattern = re.compile('\w_t(\d+)_p')
+    if not success:
+        raise ValueError('cannot regonize path format')
+
+    coadd_path_subdirs = [d for d in os.listdir(ref_path) if os.path.isdir(os.path.join(ref_path, d)) and tract_pattern.match(d)]
+    tract_numbers = [int(tract_pattern.match(d).groups()[0]) for d in coadd_path_subdirs]
+    tracts = sorted(set(tract_numbers))
+    
+    return tracts
 
 def get_coadd_id_for_ra_dec(skymap, ra, dec):
     """
