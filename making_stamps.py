@@ -54,7 +54,7 @@ tmprepo = template_repo + '/rerun/multiband'
 
 diabutler = Butler(forcerepo)
 
-truth_lightc = pd.read_csv('./lightcurves/lightcurves_cat_rect_58_56_-31_-32.csv')
+truth_lightc = pd.read_csv('./lightcurves/lightcurves_cat_rect_58.0_56.0_-31.0_-32.0.csv')
 #sntab = pd.read_csv('./catalogs+tables/supernovae_cat_rect_58_56_-31_-32.csv')
 sntab = pd.read_csv('./results/sntab_matched.csv')
 snlcs = pd.read_csv('lightcurves/sn_matched_lcs.csv')
@@ -70,7 +70,7 @@ snlcs = snlcs[snlcs['filter']!='y']
 diaSrc_store = pd.HDFStore('/global/cscratch1/sd/bos0109/diaSrc_fulltables_v3.h5')
 diaSrc_store.open()
 diaSrcs_tab = diaSrc_store['matched_tab']
-basepaths = '/global/cscratch1/sd/bos0109/run2_stamps'
+basepaths = '/global/cscratch1/sd/bos0109/run2_stamps_v3'
 
 mapper = ImsimMapper()
 camera = mapper.camera
@@ -81,7 +81,7 @@ names = [detector.getName() for detector in camera]
 det_n = [detector.getId()   for detector in camera]
 
 #region  -----------------------------------------------------------------------
-stamp_path = os.path.abspath('/global/cscratch1/sd/bos0109/run2_stamps_v3/')
+stamp_path = os.path.abspath('/global/cscratch1/sd/bos0109/run2_stamps_v4/')
 skymap = diabutler.get("deepCoadd_skyMap")
 visit_box = Odict()
 for asn in sntab[sntab.N_trueobserv>0].itertuples():
@@ -115,19 +115,39 @@ for asn in sntab[sntab.N_trueobserv>0].itertuples():
             savefits=coaddstamp_p+'.fits', saveplot=coaddstamp_p+'.png')
 
         for anepoch in flcurve.itertuples():
-            epochdir = os.path.join(fpath, f'{anepoch.visitn}')
-            if not os.path.exists(epochdir):
-                os.makedirs(epochdir)
-            head = f'mag={anepoch.mag}_id={asn.snid_in}_z={asn.z_in}_mB={asn.mB}.epochhead'
-            open(os.path.join(epochdir, head), 'w')
+            dataId = dict(visit=anepoch.visitn)
+            datarefs = list(b.subset('calexp', dataId=dataId))
+            isin_some_detector=False
+            # this circles through detectors
+            for i, dataref in enumerate(datarefs):
+                calexp = dataref.get('calexp')
+                # We're not going to do anything with it here, but we can get the PSF from the calexp
+                # like this:
+                # psf = calexp.getPsf()
+                # and we can get the zero-point (in ADU) like this
+                # zero_point = calexp.getCalib().getFluxMag0()
+                ccd_box = afwGeom.Box2D(calexp.getBBox())
+                wcs = calexp.getWcs()
+                if ccd_box.contains(wcs.skyToPixel(sn_skyp)):
+                    print('sn is in dataref: ', dataref.dataId)
+                    isin_some_detector=True
+                    diff_id = dataref.dataId
+                    break
+                #center = wcs.pixelToSky(ccd_box.getCenter()).getPosition(afwGeom.degrees)
+            if not isin_some_detector:
+                print('no detector overlapping sn cats!') 
+                continue
             #region  ----------------------------just to find detector number---
             if anepoch.visitn not in visit_box.keys():
                 visitf = visitab[visitab.obsHistID==anepoch.visitn]
+                if len(visitf)==0: 
+                    print('visit not in table')
+                    continue
                 bsight = geom.SpherePoint(visitf.descDitheredRA.values[0]*geom.degrees, 
                                           visitf.descDitheredDec.values[0]*geom.degrees)
-                orient = visitf.descDitheredRotTelPos.values[0]*geom.degrees
+                orient = (90-visitf.descDitheredRotTelPos.values[0])*geom.degrees
     
-                wcs_list = [makeSkyWcs(t, orient, flipX=True, boresight=bsight,
+                wcs_list = [makeSkyWcs(t, orient, flipX=False, boresight=bsight,
                                         projection='TAN') for t in trans]
                 visit_box[anepoch.visitn] = [bsight, orient, wcs_list]
             else:
@@ -143,28 +163,36 @@ for asn in sntab[sntab.N_trueobserv>0].itertuples():
                 continue
             else:
                 detector, detname = det_c[0]
+                print('detector that contains: ', detector, detname)
+            import ipdb; ipdb.set_trace()
             #endregion ---------------------------------------------------------
             
-            try:                
-                diff_id = {}
-                diff_id['filter'] = afilter
-                diff_id['visit'] = int(anepoch.visitn)
-                diff_id['detector'] = int(detector)  # int(diff_visit['detector'])
-                diff_id['tract'] = coadd_id['tract']
-                diff_id['patch'] = coadd_id['patch']
-                
-                stamp_title = f"SN id={asn.snid_in} visit={anepoch.visitn} "
-                stamp_title +=f"MJD = {anepoch.mjd} \n"
-                stamp_title +=f"filter={anepoch.filter} det={detector} " 
-                stamp_title +=f"matched: {anepoch.epoch_DIAmatch} " 
+            epochdir = os.path.join(fpath, f'{anepoch.visitn}')
+            if not os.path.exists(epochdir):
+                os.makedirs(epochdir)
+            head = f'mag={anepoch.mag}_id={asn.snid_in}_z={asn.z_in}_mB={asn.mB}.epochhead'
+            
+            open(os.path.join(epochdir, head), 'w')                
+            #diff_id = {}
+            #diff_id['filter'] = afilter
+            #diff_id['visit'] = int(anepoch.visitn)
+            #diff_id['detector'] = int(detector)  # int(diff_visit['detector'])
+            #diff_id['tract'] = coadd_id['tract']
+            #diff_id['patch'] = coadd_id['patch']
+            
+            stamp_title = f"SN id={asn.snid_in} visit={anepoch.visitn} "
+            stamp_title +=f"MJD = {anepoch.mjd} \n"
+            stamp_title +=f"filter={anepoch.filter} det={detector} " 
+            stamp_title +=f"matched: {anepoch.epoch_DIAmatch} " 
 
-                scienstamp_p = os.path.join(epochdir, f'snid_{asn.snid_in}_mjd_{anepoch.mjd}_scien')
-                science_cutout = dmu.make_display_cutout_image(diabutler, diff_id, 
+            scienstamp_p = os.path.join(epochdir, f'snid_{asn.snid_in}_mjd_{anepoch.mjd}_scien')
+            diffstamp_p = os.path.join(epochdir, f'snid_{asn.snid_in}_mjd_{anepoch.mjd}_diff')
+            try:
+                science_cutout = dmu.make_display_cutout_image(b, diff_id, 
                     float(ra), float(dec), dataset_type='calexp', warp_to_exposure=coadd_cutout, 
                     title='science '+stamp_title, savefits=scienstamp_p+'.fits', 
                     saveplot=scienstamp_p+'.png')
-                
-                diffstamp_p = os.path.join(epochdir, f'snid_{asn.snid_in}_mjd_{anepoch.mjd}_diff')
+    
                 cutout_diff = dmu.make_display_cutout_image(diabutler, diff_id, 
                     float(ra), float(dec), 
                     dataset_type='deepDiff_differenceExp', warp_to_exposure=coadd_cutout, 
@@ -172,7 +200,7 @@ for asn in sntab[sntab.N_trueobserv>0].itertuples():
                     saveplot=diffstamp_p+'.png')
                 
             except:
-                print('failed the try\n')
+                print('failed the try, dataId: ', diff_id)
                 continue
             
 #endregion ---------------------------------------------------------------------

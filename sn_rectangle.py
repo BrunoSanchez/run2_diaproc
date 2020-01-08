@@ -128,9 +128,9 @@ def main(ramax=58, ramin=56, decmin=-32, decmax=-31, t0=59215, tm=61406):
     for avisit in visitab.itertuples():
         bsight = geom.SpherePoint(avisit.descDitheredRA*geom.degrees, 
                                   avisit.descDitheredDec*geom.degrees)
-        orient = avisit.descDitheredRotSkyPos*geom.degrees
+        orient = (90-avisit.descDitheredRotSkyPos)*geom.degrees
 
-        wcs_list.append([makeSkyWcs(t, orient, flipX=True, boresight=bsight,
+        wcs_list.append([makeSkyWcs(t, orient, flipX=False, boresight=bsight,
                        projection='TAN') for t in trans])
         orientation.append(orient)
         boresight.append(bsight)

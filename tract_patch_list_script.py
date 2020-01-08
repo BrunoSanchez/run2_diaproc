@@ -104,7 +104,7 @@ for atract in tpatches:
         ccoadd.main(atract[0].getId(), apatch.getIndex(), calexp_repo=repo,
                     output_repo="$SCRATCH/templates_rect", 
                     database=database, cores=4, batch='slurm', 
-                    queue_knl=False)
+                    queue_knl=True)
         
         multib.main(atract[0].getId(), apatch.getIndex(), 
                     filters='ugriz',
@@ -116,15 +116,16 @@ for atract in tpatches:
                 batch='smp', cores=len(thepatches), rerun='assoc_sha', time=500)
 
 full_visitab = pd.concat(full_visits).drop_duplicates('visit').reset_index(drop=True)
+full_visitab.to_csv('./catalogs+tables/full_visits_from_tractmapping_db.csv')
           
 cdia.main(filters='ugriz', visit=full_visitab,
-          outfile=diaOutfile, batch='slurm', cores=4, queue_knl=False,
+          outfile=diaOutfile, batch='slurm', cores=4, queue_knl=True,
           tmpl_repo="$SCRATCH/templates_rect", rerun="diff_rect", 
           config_path="./config/imageDifferenceDriver_config.py")
 
 cfPhot.main(dia_repo="$SCRATCH/templates_rect/rerun/diff_rect/rerun/assoc_sha",
             dia_parent="$SCRATCH/templates_rect/rerun/diff_rect", time=50,
-            outfile=forcedOutfile, cores=8, batch_type='slurm', queue_knl=False)
+            outfile=forcedOutfile, cores=8, batch_type='slurm', queue_knl=True)
             
             
             

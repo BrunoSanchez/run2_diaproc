@@ -20,11 +20,11 @@ import lsst.afw.cameraGeom as cameraGeom
 
 # The lsst_sims code issues some ignorable warnings regarding ids used for querying the object
 # databases.
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore")
-    import lsst.sims.coordUtils
-    from lsst.sims.catUtils.utils import ObservationMetaDataGenerator
-    from lsst.sims.utils import getRotSkyPos
+#with warnings.catch_warnings():
+#    warnings.simplefilter("ignore")
+#    import lsst.sims.coordUtils
+#    from lsst.sims.catUtils.utils import ObservationMetaDataGenerator
+#    from lsst.sims.utils import getRotSkyPos
     
 # from desc_dc2_dm_data import REPOS
 
