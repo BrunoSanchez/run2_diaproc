@@ -198,45 +198,6 @@ ctrid_sn_tab['fxratio'] = ctrid_sn_tab['Flux']/ctrid_sn_tab['sncosmo_flux_nmgy']
 #ctrid_sn_tab['sncosmo_delta_flux'] = ctrid_sn_tab['mag'] - ctrid_sn_tab['sncosmo_mag']
 #ctrid_sn_tab['sncosmo_delta_mag'].describe()
 
-# not every object in the instance catalog is in the centroid files
-mean_dec = np.max(sntables['sndec_in'])
-plt.figure(figsize=(6, 4))
-plt.grid()
-plt.scatter(sntables['snra_in'], sntables['sndec_in'], 
-            s=6, label='SN Instance catalog', c='black')
-plt.scatter(ctrid_sn_tab['sn_Ra_in'], ctrid_sn_tab['sn_Dec_in'], 
-            s=3, label='Centroid File', color='grey')
-plt.gca().set_aspect(1./np.cos(mean_dec))
-plt.gca().invert_xaxis()
-plt.xlabel('RA [deg]')
-plt.ylabel('Dec [deg]')
-plt.legend(loc='best')
-plt.savefig('scatter_sn_ctroid_vs_inscat.png', dpi=480)
-plt.clf()
-
-# to find them we need to make a simple query:
-lostSN = sntables.loc[~sntables.snid_in.isin(ctrid_sn_tab['SourceID'])]
-bins=np.arange(0, 1.3, 0.1)
-plt.figure(figsize=(6,4))
-plt.hist(sntables['z_in'], label='Full instance catalog', histtype='step', color='black', bins=bins)
-plt.hist(lostSN['z_in'], label='SNe Not in centroid file', histtype='stepfilled', color='grey', bins=bins)
-plt.hist(lostSN['z_in'], histtype='step', color='black', bins=bins)
-plt.legend(loc='upper left')
-plt.xlabel('Redshift')
-plt.savefig('redshifts_lostSNe.png', dpi=360)
-plt.clf()
-
-bins=np.linspace(np.min(sntables['t0_in']), np.max(sntables['t0_in']), 10)
-plt.figure(figsize=(6,4))
-plt.hist(sntables['t0_in'], label='Full instance catalog', histtype='step', color='black', bins=bins)
-plt.hist(lostSN['t0_in'], label='SNe Not in centroid file', histtype='stepfilled', color='grey', bins=bins)
-plt.hist(lostSN['t0_in'], histtype='step', color='black', bins=bins)
-plt.legend(loc='upper left')
-plt.xlabel('t_0 [MJD]')
-plt.savefig('t_knots_lostSNe.png', dpi=360)
-plt.clf()
-
-
 slp, intrcp, r_val, p_val, std_err = stats.linregress(ctrid_sn_tab['Flux'], 
                                                       ctrid_sn_tab['sncosmo_flux_nmgy'])
 plt.plot(ctrid_sn_tab['Flux'], ctrid_sn_tab['sncosmo_flux_nmgy'], 'ro', label='Centroid files')
@@ -259,4 +220,70 @@ plt.legend(loc='best')
 plt.xlabel('(Centroid file Flux)/(SNCosmo flux) [ADU/nMgy]')
 plt.savefig('flux_ratios.png', dpi=480)
 plt.clf()
+
+
+# not every object in the instance catalog is in the centroid files
+mean_dec = np.max(sntables['sndec_in'])
+plt.figure(figsize=(6, 4))
+plt.grid()
+plt.scatter(sntables['snra_in'], sntables['sndec_in'], 
+            s=6, label='SN Instance catalog', c='black')
+plt.scatter(ctrid_sn_tab['sn_Ra_in'], ctrid_sn_tab['sn_Dec_in'], 
+            s=3, label='Centroid File', color='grey')
+plt.gca().set_aspect(1./np.cos(mean_dec))
+plt.gca().invert_xaxis()
+plt.xlabel('RA [deg]')
+plt.ylabel('Dec [deg]')
+plt.legend(loc='best')
+plt.savefig('scatter_sn_ctroid_vs_inscat.png', dpi=480)
+plt.clf()
+
+# to find them we need to make a simple query:
+lostSN = sntables.loc[~sntables.snid_in.isin(ctrid_sn_tab['SourceID'])].copy()
+bins=np.arange(0, 1.3, 0.1)
+plt.figure(figsize=(6,4))
+plt.hist(sntables['z_in'], label='Full instance catalog', histtype='step', color='black', bins=bins)
+plt.hist(lostSN['z_in'], label='SNe Not in centroid file', histtype='stepfilled', color='grey', bins=bins)
+plt.hist(lostSN['z_in'], histtype='step', color='black', bins=bins)
+plt.legend(loc='upper left')
+plt.xlabel('Redshift')
+plt.savefig('redshifts_lostSNe.png', dpi=360)
+plt.clf()
+
+bins=np.linspace(np.min(sntables['t0_in']), np.max(sntables['t0_in']), 10)
+plt.figure(figsize=(6,4))
+plt.hist(sntables['t0_in'], label='Full instance catalog', histtype='step', color='black', bins=bins)
+plt.hist(lostSN['t0_in'], label='SNe Not in centroid file', histtype='stepfilled', color='grey', bins=bins)
+plt.hist(lostSN['t0_in'], histtype='step', color='black', bins=bins)
+plt.legend(loc='upper left')
+plt.xlabel('t_0 [MJD]')
+plt.savefig('t_knots_lostSNe.png', dpi=360)
+plt.clf()
+
+## Are they going to fall inside the boxes of every CCD?
+isinCCD = []
+for asn in lostSN.itertuples():
+    sn_skyp = afwGeom.SpherePoint(asn.snra_in, asn.sndec_in, afwGeom.degrees)
+    contain = np.array([box.contains(afwGeom.Point2I(wcs.skyToPixel(sn_skyp))) \
+                    for box, wcs in zip(boxes, wcs_list)])
+
+    if np.sum(contain)==0:
+        print('Not falling in any chip')
+        isinCCD.append(False)
+        continue
+    elif np.sum(contain)==1:
+        detname = names[contain][0]
+        wcs = wcs_list[contain][0]
+        sn_pixc = wcs.skyToPixel(sn_skyp)
+        xsn, ysn = sn_pixc
+        print(f'Falls in the CCD FoV, detector={detname}, x={xsn}, y={ysn}')
+        isinCCD.append(True)
+        lostSN.loc[lostSN['snid_in']==asn.snid_in, 'detname'] = detname
+        lostSN.loc[lostSN['snid_in']==asn.snid_in, 'xPix'] = xsn
+        lostSN.loc[lostSN['snid_in']==asn.snid_in, 'yPix'] = ysn
+    else:
+        isinCCD.append(True)
+        print('Found in more than one CCD!!')
+
+lostSN['isinCCD_FoV'] = isinCCD
 
