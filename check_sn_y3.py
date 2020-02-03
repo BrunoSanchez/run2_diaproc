@@ -27,11 +27,13 @@ import os
 import sqlite3
 
 import numpy as np
+from scipy import stats 
 import matplotlib.pyplot as plt
 import pandas as pd
 
 from astropy import time
 from astropy import units as u
+from astropy.stats import sigma_clipped_stats
 from astropy.coordinates import SkyCoord
 from astropy.table import vstack
 
@@ -60,6 +62,14 @@ from lsst.sims.photUtils.PhotometricParameters import PhotometricParameters
 from collections import OrderedDict as Odict
  
 LSST_BPass = BandpassDict.loadTotalBandpassesFromFiles()
+#region creating the telescope camera objects
+mapper = ImsimMapper()
+camera = mapper.camera
+trans = np.array([detector.getTransform(lsst.afw.cameraGeom.cameraSys.PIXELS,
+         lsst.afw.cameraGeom.cameraSys.FIELD_ANGLE) for detector in camera])
+boxes = np.array([detector.getBBox() for detector in camera])
+names = np.array([detector.getName() for detector in camera])
+#endregion
 
 # path where instCat are located is /global/cscratch1/sd/descim/Run2.2i/y3-wfd/instCat/
 # path where the file outputs of each image are located is in 
@@ -80,40 +90,40 @@ centroid_header = ['SourceID', 'Flux', 'RealizedFlux', 'xPix', 'yPix', 'flags', 
 conn = sqlite3.connect(snedb)
 c = conn.cursor()
 
-## this is me guessing the instcat column names
-names = ['type', 'SN_ID', 'RA', 'Dec', 'mag', 'specfile', 
+# region get SNe magnitudes from SNCosmo
+def getSNCosmomags(mjd, filt, snpars_table, snid_in='MS_9940_3541'):
+    asn = snpars_table.loc[snpars_table['snid_in']==snid_in]
+    sn_mod = SNObject(ra=asn.snra_in[0], dec=asn.sndec_in[0])
+    sn_mod.set(z=asn.z_in[0], t0=asn.t0_in[0], x1=asn.x1_in[0],
+               c=asn.c_in[0], x0=asn.x0_in[0])
+
+    # this is probably not the thing to do
+    flux = sn_mod.catsimBandFlux(mjd, LSST_BPass[filt])
+    mag = sn_mod.catsimBandMag(LSST_BPass[filt], mjd, flux)
+    return(flux, mag)
+#endregion
+
+#region : this is me guessing the instcat column names
+instnames = ['type', 'SN_ID', 'RA', 'Dec', 'mag', 'specfile', 
          'val1', 'val2', 'val3', 'val4', 'val3', 'val4', 'point', 
          'none', 'CCM', '0.0175260442', '3.1']
+#endregion 
 # instance catalog for the SN in this particular visit:
-sn_cats_table = pd.read_table(sncats.format(strvisit, str(visitn)), 
-                      skiprows=1, sep=' ', names=names)
+sn_instcat_table = pd.read_table(sncats.format(strvisit, str(visitn)), 
+                      skiprows=1, sep=' ', names=instnames)
 
-
-# set of queries to the SNCOsmo SN database                      
+#region set of queries to the SNCOsmo SN database                      
 query_tmpl = "SELECT * FROM sne_params WHERE snid_in = "
-
 sntables = []
-for arow in sn_cats_table.itertuples():
+for arow in sn_instcat_table.itertuples():
     query = query_tmpl + "'" + str(arow.SN_ID) + "'"
     sntab = pd.read_sql_query(query, conn)
     sntables.append(sntab)
-# now we have in the sntables the 
+#endregion
+# Supernovae in the instance catalog present in the CosmoDC2 database: 
 sntables = pd.concat(sntables)
 
-## this Y3 visit is not in the calexp repo yet. We have to find the WCS by other means
-#calexp = '/global/cscratch1/sd/desc/DC2/data/Run2.2i/rerun/run2.2_calexp-v1'
-#butler = Butler(calexp)
-
-# creating the telescope camera objects
-mapper = ImsimMapper()
-camera = mapper.camera
-trans = np.array([detector.getTransform(lsst.afw.cameraGeom.cameraSys.PIXELS,
-         lsst.afw.cameraGeom.cameraSys.FIELD_ANGLE) for detector in camera])
-boxes = np.array([detector.getBBox() for detector in camera])
-names = np.array([detector.getName() for detector in camera])
-
-
-# visits database
+#region querying visits database
 dbname = '/global/projecta/projectdirs/lsst/groups/SSim/DC2/minion_1016_desc_dithered_v4.db'
 #dbname = '/global/projecta/projectdirs/lsst/groups/SSim/DC2/minion_1016_desc_dithered_v4.db'
 ObsMetaData = ObservationMetaDataGenerator(database=dbname)
@@ -125,73 +135,128 @@ ditherDec = np.rad2deg(parsed['descDitheredDec'])
 ditherRot = np.rad2deg(parsed['descDitheredRotTelPos'])
 rotSkyPos = getRotSkyPos(ditherRa, ditherDec, res, ditherRot)
 
-print(ditherRa, ditherDec, ditherRot, rotSkyPos)
-
+# boresight and WCS from the values above
 bsight = geom.SpherePoint(ditherRa*geom.degrees, ditherDec*geom.degrees)
 orient = (90-rotSkyPos)*geom.degrees
-wcs_list = np.array([makeSkyWcs(t, orient, flipX=True, boresight=bsight,
+wcs_list = np.array([makeSkyWcs(t, orient, flipX=False, boresight=bsight,
                        projection='TAN') for t in trans])
+
+#MDJ and filter from the ObsMetaData
 mjd = parsed['expMJD']
 filt = parsed['filter']
+#endregion
+# information of the visit, like coordinates and camera rotation angles
+print('MJD', 'Filter', 'ditherRA', 'ditherDec', 'ditherRot', 'rotSkyPos')
+print(mjd, filt, ditherRa, ditherDec, ditherRot, rotSkyPos, '\n')
 
-# load every centroid file and find the SN
+#region load every centroid file and find the SN ids 
 ctrid_tables = []
 for detname in names:
     ctrid_file = centroid_tmpl.format(str(visitn), detname, filt)
     ctrid_tab = pd.read_csv(ctrid_file, sep='\s+', skiprows=1, 
                             names=centroid_header, low_memory=False)
-    subtab = ctrid_tab.loc[ctrid_tab.SourceID.isin(sntables.snid_in.values)]
+    subtab = ctrid_tab.loc[ctrid_tab.SourceID.isin(sntables.snid_in.values)].copy()
     subtab['detname'] = detname
     ctrid_tables.append(subtab)
-ctrid_tab = pd.concat(ctrid_tables)
+#endregion
+# the SNe in the centroid files:
+ctrid_sn_tab = pd.concat(ctrid_tables)
+
+ctrid_sn_tab['sncosmo_mag'] = -10
+ctrid_sn_tab['sncosmo_flux'] = -10
+ctrid_sn_tab['centroid_mag'] = -10
+ctrid_sn_tab['MJD'] = mjd
+ctrid_sn_tab['Filter'] = filt
+
+for asn in ctrid_sn_tab.itertuples():
+    idx = ctrid_sn_tab['SourceID']==asn.SourceID
+    flux, mag = getSNCosmomags(mjd, filt, snpars_table=sntables, snid_in=asn.SourceID)
+    ctrid_sn_tab.loc[idx, 'sncosmo_flux'] = flux
+    ctrid_sn_tab.loc[idx, 'sncosmo_mag'] = mag
+
+    # we actually need to check SNCosmo DB
+    snpars = sntables.loc[sntables['snid_in']==asn.SourceID]
+    ctrid_sn_tab.loc[idx, 'sn_z_in'] = snpars.z_in[0]
+    ctrid_sn_tab.loc[idx, 'sn_Ra_in'] = snpars.snra_in[0]
+    ctrid_sn_tab.loc[idx, 'sn_Dec_in'] = snpars.sndec_in[0]
+    ctrid_sn_tab.loc[idx, 'sn_t0_in'] = snpars.t0_in[0]
+    ctrid_sn_tab.loc[idx, 'sn_mB_in'] = snpars.mB[0]
+    ctrid_sn_tab.loc[idx, 'sn_x0_in'] = snpars.x0_in[0]
+    ctrid_sn_tab.loc[idx, 'sn_x1_in'] = snpars.x1_in[0]
+    ctrid_sn_tab.loc[idx, 'sn_c_in'] = snpars.c_in[0]
+    sn_skyp = afwGeom.SpherePoint(snpars.snra_in[0], snpars.sndec_in[0], afwGeom.degrees)
+            
+    detname = asn.detname
+    wcs = wcs_list[int(np.where(names==detname)[0])]
+
+    sn_pixc = wcs.skyToPixel(sn_skyp)
+    xsn, ysn = sn_pixc
+
+ctrid_sn_tab['sncosmo_flux_nmgy'] = (ctrid_sn_tab['sncosmo_flux'].values*u.mgy).to(u.nmgy).value
+ctrid_sn_tab['fxratio'] = ctrid_sn_tab['Flux']/ctrid_sn_tab['sncosmo_flux_nmgy']
+
+#ctrid_sn_tab['sncosmo_delta_flux'] = ctrid_sn_tab['mag'] - ctrid_sn_tab['sncosmo_mag']
+#ctrid_sn_tab['sncosmo_delta_mag'].describe()
+
+# not every object in the instance catalog is in the centroid files
+mean_dec = np.max(sntables['sndec_in'])
+plt.figure(figsize=(6, 4))
+plt.grid()
+plt.scatter(sntables['snra_in'], sntables['sndec_in'], 
+            s=6, label='SN Instance catalog', c='black')
+plt.scatter(ctrid_sn_tab['sn_Ra_in'], ctrid_sn_tab['sn_Dec_in'], 
+            s=3, label='Centroid File', color='grey')
+plt.gca().set_aspect(1./np.cos(mean_dec))
+plt.gca().invert_xaxis()
+plt.xlabel('RA [deg]')
+plt.ylabel('Dec [deg]')
+plt.legend(loc='best')
+plt.savefig('scatter_sn_ctroid_vs_inscat.png', dpi=480)
+plt.clf()
+
+# to find them we need to make a simple query:
+lostSN = sntables.loc[~sntables.snid_in.isin(ctrid_sn_tab['SourceID'])]
+bins=np.arange(0, 1.3, 0.1)
+plt.figure(figsize=(6,4))
+plt.hist(sntables['z_in'], label='Full instance catalog', histtype='step', color='black', bins=bins)
+plt.hist(lostSN['z_in'], label='SNe Not in centroid file', histtype='stepfilled', color='grey', bins=bins)
+plt.hist(lostSN['z_in'], histtype='step', color='black', bins=bins)
+plt.legend(loc='upper left')
+plt.xlabel('Redshift')
+plt.savefig('redshifts_lostSNe.png', dpi=360)
+plt.clf()
+
+bins=np.linspace(np.min(sntables['t0_in']), np.max(sntables['t0_in']), 10)
+plt.figure(figsize=(6,4))
+plt.hist(sntables['t0_in'], label='Full instance catalog', histtype='step', color='black', bins=bins)
+plt.hist(lostSN['t0_in'], label='SNe Not in centroid file', histtype='stepfilled', color='grey', bins=bins)
+plt.hist(lostSN['t0_in'], histtype='step', color='black', bins=bins)
+plt.legend(loc='upper left')
+plt.xlabel('t_0 [MJD]')
+plt.savefig('t_knots_lostSNe.png', dpi=360)
+plt.clf()
 
 
-sn_cats_table['sncosmo_mag'] = -10
-sn_cats_table['sncosmo_flux'] = -10
-sn_cats_table['centroid_mag'] = -10
-for asn in sntables.itertuples():
-    sn_mod = SNObject(ra=asn.snra_in, dec=asn.sndec_in)
-    sn_mod.set(z=asn.z_in, t0=asn.t0_in, x1=asn.x1_in,
-               c=asn.c_in, x0=asn.x0_in)
-
-    # this is probably not the thing to do
-    flux = sn_mod.catsimBandFlux(mjd, LSST_BPass[filt])
-    mag = sn_mod.catsimBandMag(LSST_BPass[filt], mjd, flux)
-    sn_cats_table.loc[sn_cats_table['SN_ID']==asn.snid_in, 'sncosmo_flux'] = flux
-    sn_cats_table.loc[sn_cats_table['SN_ID']==asn.snid_in, 'sncosmo_mag'] = mag
+slp, intrcp, r_val, p_val, std_err = stats.linregress(ctrid_sn_tab['Flux'], 
+                                                      ctrid_sn_tab['sncosmo_flux_nmgy'])
+plt.plot(ctrid_sn_tab['Flux'], ctrid_sn_tab['sncosmo_flux_nmgy'], 'ro', label='Centroid files')
+plt.plot(ctrid_sn_tab['Flux'], ctrid_sn_tab['Flux']*slp + intrcp, 'k-', label='Linear fit.')
+plt.title(f'Slope={slp:.3e},  intrcp={intrcp:.2e},  slope^-1={(1./slp):.1f}')
+plt.xlabel('Flux from centroid file [ADU]')
+plt.ylabel('Flux from SNCosmo [nMgy]')
+plt.grid()
+plt.legend(loc='best')
+plt.savefig('flux_relationship.png', dpi=480)
+plt.clf()
 
 
-    # we actually need to check the centroid files
-    sn_skyp = afwGeom.SpherePoint(asn.snra_in, asn.sndec_in, afwGeom.degrees)
-    contain = np.array([box.contains(afwGeom.Point2I(wcs.skyToPixel(sn_skyp))) \
-                    for box, wcs in zip(boxes, wcs_list)])
-
-    if np.sum(contain)==0:
-        continue
-    else:
-        print('found one')
-        detname = names[contain][0]
-        wcs = wcs_list[contain][0]
-        sn_pixc = wcs.skyToPixel(sn_skyp)
-        xsn, ysn = sn_pixc
-        ctrid_file = centroid_tmpl.format(str(visitn), detname, filt)
-
-        ctrid_tab = pd.read_csv(ctrid_file, sep='\s+', skiprows=1, names=centroid_header)
-
-        fx = ctrid_tab['xPix'] > xsn - 15. 
-        fx &= ctrid_tab['xPix'] < xsn + 15.
-        fy = ctrid_tab['yPix'] > ysn - 15. 
-        fy &= ctrid_tab['yPix'] < ysn + 15.
-        ff = fx & fy
-        
-
-        break
-    
-
-
-
-
-sn_cats_table['sncosmo_delta_mag'] = sn_cats_table['mag'] - sn_cats_table['sncosmo_mag']
-sn_cats_table['sncosmo_delta_mag'].describe()
-
+mm, md, sd = sigma_clipped_stats(ctrid_sn_tab['fxratio'])
+plt.hist(ctrid_sn_tab['fxratio'], log=True, histtype='step', color='black', lw=1.5)
+plt.vlines(x=mm, ymin=.1, ymax=300, label='Mean')
+plt.vlines(mm+sd, ymin=.1, ymax=300, label='1 std', linestyles='dashed')
+plt.vlines(mm-sd, ymin=.1, ymax=300, linestyles='dashed')
+plt.legend(loc='best')
+plt.xlabel('(Centroid file Flux)/(SNCosmo flux) [ADU/nMgy]')
+plt.savefig('flux_ratios.png', dpi=480)
+plt.clf()
 
