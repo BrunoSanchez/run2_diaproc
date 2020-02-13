@@ -30,3 +30,4 @@ config.imageDifference.refObjLoader.load(os.path.join(getPackageDir('obs_lsst'),
 config.imageDifference.kernelSourcesFromRef = True
 #config.imageDifference.doPreconvolve = True
 config.ccdKey = 'detector'
+config.imageDifference.writeTemplate = True
