@@ -26,6 +26,8 @@
 import os
 import sqlite3
 
+from glob import glob
+
 import numpy as np
 
 import lsst.afw.cameraGeom
@@ -50,19 +52,34 @@ skymap = b.get('deepCoadd_skyMap')
 
 template_repo = '/global/cscratch1/sd/bos0109/templates_rect'
 diarepo = template_repo + '/rerun/diff_rect'
-assocrepo = diarepo + '/rerun/assoc_sha'
+assocrepo = diarepo + '/rerun/assoc_secrun'
 forcerepo = assocrepo + '/rerun/forcedPhot' 
 tmprepo = template_repo + '/rerun/multiband'
 
 diabutler = Butler(forcerepo)
 
-#truth_lightc = pd.read_csv('./lightcurves/lightcurves_cat_rect_58.0_56.0_-31.0_-32.0.csv')
-#sntab = pd.read_csv('./catalogs+tables/supernovae_cat_rect_58.0_56.0_-31.0_-32.0.csv')
-truth_lightc = pd.read_csv('./lightcurves/lightcurves_cat_rect_58_56_-31_-32.csv')
-sntab = pd.read_csv('./catalogs+tables/supernovae_cat_rect_58_56_-31_-32.csv')
+truth_lightc = pd.read_csv('./lightcurves/lightcurves_cat_rect_58.0_56.0_-31.0_-32.0.csv')
+sntab = pd.read_csv('./catalogs+tables/supernovae_cat_rect_58.0_56.0_-31.0_-32.0.csv')
 
+#region --------- we are going to clean the tables using the visits in forced repo
+files = glob(diarepo+'/deepDiff/*')
+visitn = []
+for afile in files:
+    vname = os.path.basename(afile)
+    visitn.append(int(vname[1:-3]))
+visit_n = np.array(visitn)
 
-diaSrc_store = pd.HDFStore('/global/cscratch1/sd/bos0109/diaSrc_fulltables_v3.h5')
+visit_filter = truth_lightc.visitn.isin(visit_n)
+# tab
+truth_lightc = truth_lightc[visit_filter]
+sntab = sntab[sntab.N_trueobserv!=0]
+#endregion ---------------------------------------------------------------------
+
+#truth_lightc = pd.read_csv('./lightcurves/lightcurves_cat_rect_58_56_-31_-32.csv')
+#sntab = pd.read_csv('./catalogs+tables/supernovae_cat_rect_58_56_-31_-32.csv')
+
+#diaSrc_store = pd.HDFStore('/global/cscratch1/sd/bos0109/diaSrc_forced_fulltables_v4.h5')
+diaSrc_store = pd.HDFStore('/global/homes/b/bos0109/run2_diaproc/results/diaSrc_secrun_fulltables_v4.h5')
 diaSrc_store.open()
 metacols = ['id', 'visit', 'filter', 'raftName', 'detectorName', 'detector']
 
@@ -186,13 +203,17 @@ for ic in range(len(cand_obj)):
     # take care of u, and y filter empty rows
     dia_lc = []
     for anid in diaSrcs_ids['diaSrcIds'].values[0]:
-        srcepoch = diaSrcs_tab.query('id == {}'.format(anid))
+        srcepoch = diaSrcs_tab.query('id == {}'.format(int(anid)))
         if len(srcepoch) is not 0:
             dia_lc.append(srcepoch)
+    #if len(dia_lc) is not 0:
+    #    dia_lc = pd.concat(dia_lc)
+    
     # search for SN epochs
     snC_lc = get_truth_LC(truth_lightc, snC.snid_in.values[0])
     sn_epoch_match = np.repeat(False, len(snC_lc))
     for a_dia_epoch in dia_lc:
+    #for iepoch, a_dia_epoch in dia_lc.iterrows():
         v_match = snC_lc.visitn == int(a_dia_epoch['visit_n'])
         sn_epoch_match = sn_epoch_match | v_match
         if np.sum(v_match) == 1: # a true positive!
@@ -273,51 +294,78 @@ snlcs.to_csv('lightcurves/sn_matched_lcs.csv')
 ff = sntab.matched
 # z
 plt.figure(figsize=(12, 8))
-plt.subplot(2, 3, 1)
+plt.subplot(3, 3, 1)
 bins = np.arange(sntab.z_in.min(), sntab.z_in.max(), 0.05)
-plt.hist(sntab[ff]['z_in'], bins=bins, color='black', 
+plt.hist(sntab['z_in'], bins=bins, color='black', 
+         histtype='step', label='Full')
+plt.hist(sntab[ff]['z_in'], bins=bins, color='red', 
          histtype='step', label='matched')
-plt.hist(sntab[~ff]['z_in'], bins=bins, color='red', 
-         histtype='step', label='NOT matched')
 plt.xlabel('z_in')
 # mB
-plt.subplot(2, 3, 2)
+plt.subplot(3, 3, 2)
 bins = np.arange(sntab.mB.min(), sntab.mB.max(), 0.5)
-plt.hist(sntab[ff]['mB'], bins=bins, color='black', histtype='step')
-plt.hist(sntab[~ff]['mB'], bins=bins, color='red', histtype='step')
+plt.hist(sntab['mB'], bins=bins, color='black', histtype='step')
+plt.hist(sntab[ff]['mB'], bins=bins, color='red', histtype='step')
 plt.xlabel('mB')
 # c_in
-plt.subplot(2, 3, 3)
+plt.subplot(3, 3, 3)
 bins = np.arange(sntab.c_in.min(), sntab.c_in.max(), 0.025)
-plt.hist(sntab[ff]['c_in'], bins=bins, color='black', histtype='step')
-plt.hist(sntab[~ff]['c_in'], bins=bins, color='red', histtype='step')
+plt.hist(sntab['c_in'], bins=bins, color='black', histtype='step')
+plt.hist(sntab[ff]['c_in'], bins=bins, color='red', histtype='step')
 plt.xlabel('c_in')
 # x1_in
-plt.subplot(2, 3, 4)
+plt.subplot(3, 3, 4)
 bins = np.arange(sntab.x1_in.min(), sntab.x1_in.max(), 0.5)
-plt.hist(sntab[ff]['x1_in'], bins=bins, color='black', histtype='step')
-plt.hist(sntab[~ff]['x1_in'], bins=bins, color='red', histtype='step')
+plt.hist(sntab['x1_in'], bins=bins, color='black', histtype='step')
+plt.hist(sntab[ff]['x1_in'], bins=bins, color='red', histtype='step')
 plt.xlabel('x1_in')
-# x0_in
-plt.subplot(2, 3, 5)
-bins = np.arange(sntab.x0_in.min(), sntab.x0_in.max(), 0.5e-4)
-plt.hist(sntab[ff]['x0_in'], bins=bins, color='black', 
-         histtype='step', log=True, label='matched')
-plt.hist(sntab[~ff]['x0_in'], bins=bins, color='red', 
-         histtype='step', log=True, label='NOT matched')
-plt.xlabel('x0_in')
+# t0_in
+plt.subplot(3, 3, 5)
+bins = np.arange(sntab.t0_in.min(), sntab.t0_in.max(), 100)
+plt.hist(sntab['t0_in'], bins=bins, color='black', 
+         histtype='step', log=False, label='Full')
+plt.hist(sntab[ff]['t0_in'], bins=bins, color='red', 
+         histtype='step', log=False, label='matched')
+plt.xlabel('t0_in')
 plt.legend(loc='best')
 # coords
-plt.subplot(2, 3, 6)
+plt.subplot(3, 3, 6)
+plt.scatter(sntab['snra_in'], sntab['sndec_in'],
+            color='black', marker='x', label='Full', alpha=0.6)
 plt.scatter(sntab[ff]['snra_in'], sntab[ff]['sndec_in'],
-            color='black', marker='x', label='matched', alpha=0.6)
-plt.scatter(sntab[~ff]['snra_in'], sntab[~ff]['sndec_in'],
-            color='red', marker='.', label='NOT matched', alpha=0.3)
+            color='red', marker='.', label='matched', alpha=0.3)
 plt.xlabel('snra_in')
 plt.ylabel('sndec_in')
 #plt.legend(loc='best')
+# x0_in
+plt.subplot(3, 3, 7)
+bins = np.arange(sntab.x0_in.min(), sntab.x0_in.max(), 0.5e-4)
+plt.hist(sntab['x0_in'], bins=bins, color='black', 
+         histtype='step', log=True, label='Full')
+plt.hist(sntab[ff]['x0_in'], bins=bins, color='red', 
+         histtype='step', log=True, label='matched')
+plt.xlabel('x0_in')
+#plt.legend(loc='best')
+# mB vs z
+plt.subplot(3, 3, 8)
+plt.scatter(sntab['z_in'], sntab['mB'],
+            color='black', marker='.', label='Full', alpha=0.6)
+plt.scatter(sntab[ff]['z_in'], sntab[ff]['mB'],
+            color='red', marker='x', label='matched', alpha=0.3)
+plt.xlabel('z_in')
+plt.ylabel('mB')
+#plt.legend(loc='best')
+# mB vs z
+plt.subplot(3, 3, 9)
+plt.scatter(sntab['mB'], sntab['t0_in'],
+            color='black', marker='.', label='Full', alpha=0.6)
+plt.scatter(sntab[ff]['mB'], sntab[ff]['t0_in'],
+            color='red', marker='x', label='matched', alpha=0.3)
+plt.xlabel('mB')
+plt.ylabel('t0_in')
+#plt.legend(loc='best')
 plt.tight_layout()
-plt.savefig('match_sntab.png')
+plt.savefig('match_sntab.png', dpi=480)
 plt.close()
 #endregion ---------------------------------------------------------------------
 
@@ -362,45 +410,47 @@ plt.close()
 diaSrc_store['matched_tab'] = diaSrcs_tab
 diaSrc_store.flush()
 
+diaSrc_store.close()  #############################
+
 #region  -----------------------------get the calibration zeropoints------------
-fluxes_to_calibrate = ['base_PsfFlux_instFlux',
-                       'ip_diffim_forced_PsfFlux_instFlux',
-                       'base_CircularApertureFlux_3_0_instFlux',
-                       'base_CircularApertureFlux_4_5_instFlux',
-                       'base_CircularApertureFlux_6_0_instFlux',
-                       'base_CircularApertureFlux_9_0_instFlux',
-                       'base_CircularApertureFlux_12_0_instFlux', 
-                       'base_CircularApertureFlux_17_0_instFlux', 
-                       'base_CircularApertureFlux_25_0_instFlux']
-for aflux in fluxes_to_calibrate:
-    diaSrcs_tab[aflux+'_nJy'] = np.nan 
-    diaSrcs_tab[aflux+'_nJyErr'] = np.nan 
-    diaSrcs_tab[aflux+'_calMag'] = np.nan 
-    diaSrcs_tab[aflux+'_calMagErr'] = np.nan 
-    
-for name, srccat in diaSrcs_tab.groupby(
-    ['visit_n', 'detector']):
-    vn, det = name
-
-    photcal = diabutler.get('deepDiff_differenceExp_photoCalib', 
-                    visit=int(vn), detector=int(det))
-
-    for id_src, asrc in srccat.iterrows():
-        for aflux in fluxes_to_calibrate:
-            flux, err = asrc[aflux], asrc[aflux+'Err'] 
-            #print(flux, err)
-            cal = photcal.instFluxToMagnitude(flux, err)
-            diaSrcs_tab.loc[id_src, aflux+'_calMag'] = cal.value
-            diaSrcs_tab.loc[id_src, aflux+'_calMagErr'] = cal.error
-            cal = photcal.instFluxToNanojansky(flux, err)
-            diaSrcs_tab.loc[id_src, aflux+'_nJy'] = cal.value
-            diaSrcs_tab.loc[id_src, aflux+'_nJyErr'] = cal.error
-diaSrc_store['matched_tab'] = diaSrcs_tab
-diaSrc_store.flush()
-diaSrc_store.close()
+# fluxes_to_calibrate = ['base_PsfFlux_instFlux',
+#                        'ip_diffim_forced_PsfFlux_instFlux',
+#                        'base_CircularApertureFlux_3_0_instFlux',
+#                        'base_CircularApertureFlux_4_5_instFlux',
+#                        'base_CircularApertureFlux_6_0_instFlux',
+#                        'base_CircularApertureFlux_9_0_instFlux',
+#                        'base_CircularApertureFlux_12_0_instFlux', 
+#                        'base_CircularApertureFlux_17_0_instFlux', 
+#                        'base_CircularApertureFlux_25_0_instFlux']
+# for aflux in fluxes_to_calibrate:
+#     diaSrcs_tab[aflux+'_nJy'] = np.nan 
+#     diaSrcs_tab[aflux+'_nJyErr'] = np.nan 
+#     diaSrcs_tab[aflux+'_calMag'] = np.nan 
+#     diaSrcs_tab[aflux+'_calMagErr'] = np.nan 
+#     
+# for name, srccat in diaSrcs_tab.groupby(
+#     ['visit_n', 'detector']):
+#     vn, det = name
+# 
+#     photcal = diabutler.get('deepDiff_differenceExp_photoCalib', 
+#                     visit=int(vn), detector=int(det))
+# 
+#     for id_src, asrc in srccat.iterrows():
+#         for aflux in fluxes_to_calibrate:
+#             flux, err = asrc[aflux], asrc[aflux+'Err'] 
+#             #print(flux, err)
+#             cal = photcal.instFluxToMagnitude(flux, err)
+#             diaSrcs_tab.loc[id_src, aflux+'_calMag'] = cal.value
+#             diaSrcs_tab.loc[id_src, aflux+'_calMagErr'] = cal.error
+#             cal = photcal.instFluxToNanojansky(flux, err)
+#             diaSrcs_tab.loc[id_src, aflux+'_nJy'] = cal.value
+#             diaSrcs_tab.loc[id_src, aflux+'_nJyErr'] = cal.error
+# diaSrc_store['matched_tab'] = diaSrcs_tab
+# diaSrc_store.flush()
+#diaSrc_store.close()
 #endregion ---------------------------------------------------------------------
 
-# #region  --------------------------------------- analyzing brightness of objects
+#region  --------------------------------------- analyzing brightness of objects
 # plt.suplot(2, 2, 1)
 # plt.hist(diaObject_table[ff]['match_ang_dist'], color='black', 
 #          label='matched', histtype='step', bins=bins, log=True)
@@ -425,16 +475,16 @@ diaSrc_store.close()
 
 
 
-# #endregion ---------------------------------------------------------------------
+#endregion ---------------------------------------------------------------------
 
-# #region  -----------------------------------------------------------------------
+#region  -----------------------------------------------------------------------
 # #diaSrcs_tab = diaSrc_store['new_table']
 # print(len(diaSrcs_tab))
 # print(np.sum(diaSrcs_tab.epoch_matched), len(diaSrcs_tab), 
 #       np.sum(diaSrcs_tab.epoch_matched)/len(diaSrcs_tab))
 # bogus = diaSrcs_tab[~diaSrcs_tab.epoch_matched]
 # reals = diaSrcs_tab[diaSrcs_tab.epoch_matched]
-# #endregion  --------------------------------------------------------------------
+#endregion  --------------------------------------------------------------------
 
 
 
