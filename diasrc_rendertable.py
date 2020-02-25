@@ -49,17 +49,18 @@ b = Butler(calexprepo)
 skymap = b.get('deepCoadd_skyMap')
 
 template_repo = '/global/cscratch1/sd/bos0109/templates_rect'
-diarepo = template_repo + '/rerun/diff_rect'
-assocrepo = diarepo + '/rerun/assoc_sha'
-forcerepo = assocrepo + '/rerun/forcedPhot' 
 tmprepo = template_repo + '/rerun/multiband'
+
+diarepo = template_repo + '/rerun/diff_rect'
+assocrepo = diarepo + '/rerun/assoc_thirrun'
+forcerepo = assocrepo + '/rerun/forcedPhot' 
 
 diabutler = Butler(forcerepo)
 
 #truth_lightc = pd.read_csv('./lightcurves/lightcurves_cat_rect_58.0_56.0_-31.0_-32.0.csv')
 #sntab = pd.read_csv('./catalogs+tables/supernovae_cat_rect_58.0_56.0_-31.0_-32.0.csv')
 
-diaSrc_store = pd.HDFStore('/global/cscratch1/sd/bos0109/diaSrc_fulltables_v3.h5')
+diaSrc_store = pd.HDFStore('/global/homes/b/bos0109/run2_diaproc/results/diaSrc_secrun_fulltables_v4.h5')
 diaSrc_store.open()
 metacols = ['id', 'visit', 'filter', 'raftName', 'detectorName', 'detector']
 
@@ -83,10 +84,60 @@ rect = [radec_NE, radec_NW, radec_SW, radec_SE]
 
 tpatches = skymap.findTractPatchList(rect)
 
-# iterating over tract and patches to build diaSrc catalogues
+# region ----------------------------------------------------------------------------------------------
+# iterating over tract and patches to build diaForced catalogues
 metas = []
-path = os.path.join(diarepo, 'deepDiff')
-diffpath = 'v{}-f{}/{}/diaSrc_{}-{}-{}-{}-det{}.fits'
+for tract, patches in tpatches:
+    tract_info = skymap[tract.getId()]
+    for patch in patches:
+        # identify the t+p
+        patch_i, patch_j = patch.getIndex()
+        patch_str = '{},{}'.format(patch_i, patch_j)
+        tpId = {'tract': tract.getId(), 'patch': patch_str}
+      
+        #store_key = str(tract.getId())+'_'+str(patch_i)+str(patch_j)
+        #if store_key in diaSrc_store: continue
+        print('starting with ', tpId)
+        metadata = diabutler.queryMetadata('deepDiff_forced_diaSrc', metacols,dataId=tpId)
+        metadata = pd.DataFrame(metadata, columns=metacols)
+        metadata = metadata[metadata['filter']!='u']
+        metadata = metadata[metadata['filter']!='y']
+        #metadata['tract'] = tpId['tract']
+        #metadata['patch'] = tpId['patch']
+        metas.append(metadata)
+metadata = pd.concat(metas).drop_duplicates()
+cats = []
+path = os.path.join(forcerepo, 'deepDiff')
+#diffpath = 'v{}-f{}/{}/diaSrc_{}-{}-{}-{}-det{}.fits'
+diffpath = 'v{}-f{}/{}/diaForced_{}-{}-{}-{}-det{}.fits'
+for idx, idr, vn, fna, raf, detN, det, in metadata.itertuples():
+    #if fna=='y' or fna=='u': continue
+    pp = diffpath.format(str(vn).zfill(8), fna, raf, str(vn).zfill(8), 
+                            fna, raf, detN, str(det).zfill(3))
+    dpath = os.path.join(path, pp)
+    if os.path.exists(dpath):
+        catalog = diabutler.get('deepDiff_forced_diaSrc', visit=vn, 
+                #tract=int(t), patch=p, 
+                detector=det).asAstropy()
+        if len(catalog) != 0:
+            catalog['visit_n'] = vn
+            catalog['filter'] = fna
+            catalog['raft'] = raf
+            catalog['sensor'] = detN
+            catalog['detector'] = det
+            cats.append(catalog)
+#import ipdb; ipdb.set_trace()
+mastercat = vstack(cats)
+mastercat = mastercat.to_pandas()
+#diaSrc_store[store_key] = mastercat
+diaSrc_store['full_table_forced'] = mastercat
+diaSrc_store.flush()
+# endregion -------------------------------------------------------------------------------------------
+del(mastercat)
+del(cats)
+# iterating over tract and patches to build diaSrc catalogues
+# region ----------------------------------------------------------------------------------------------
+metas = []
 for tract, patches in tpatches:
     tract_info = skymap[tract.getId()]
     for patch in patches:
@@ -108,10 +159,13 @@ for tract, patches in tpatches:
 metadata = pd.concat(metas).drop_duplicates()
 
 cats = []
-for idx, idr, vn, fna, raf, detN, det, in metadata.itertuples():
+path = os.path.join(diarepo, 'deepDiff')
+diffpath = 'v{}-f{}/{}/diaSrc_{}-{}-{}-{}-det{}.fits'
+#diffpath = 'v{}-f{}/{}/diaForced_{}-{}-{}-{}-det{}.fits'
+for idx, idr, vn, fna, raf, detN, det in metadata.itertuples():
     #if fna=='y' or fna=='u': continue
     pp = diffpath.format(str(vn).zfill(8), fna, raf, str(vn).zfill(8), 
-                            fna, raf, detN, str(det).zfill(3))
+                         fna, raf, detN, str(det).zfill(3))
     dpath = os.path.join(path, pp)
     if os.path.exists(dpath):
         catalog = diabutler.get('deepDiff_diaSrc', visit=vn, 
@@ -124,9 +178,11 @@ for idx, idr, vn, fna, raf, detN, det, in metadata.itertuples():
             catalog['sensor'] = detN
             catalog['detector'] = det
             cats.append(catalog)
+#import ipdb; ipdb.set_trace()
 mastercat = vstack(cats)
 mastercat = mastercat.to_pandas()
 #diaSrc_store[store_key] = mastercat
 diaSrc_store['full_table'] = mastercat
 diaSrc_store.flush()
+# endregion -------------------------------------------------------------------------------------------
 diaSrc_store.close()
