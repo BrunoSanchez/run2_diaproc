@@ -21,23 +21,37 @@
 #  MA 02110-1301, USA.
 #  
 #  
+import pandas as pd
 
 rerun = 'assoc'
 diff_repo = '$SCRATCH/templates_rect/rerun/diff_rect'
 
 nice = "time nice -n 10 "
 cmd_tmpl = "associationDriver.py  {} --rerun {} "
-cmd_tmpl +="--id tract={} filter={} --batch-type={} --clobber-config " 
-cmd_tmpl +="--cores {} --job assoc{} --time {} "
-cmd_opt_slrm = "  --batch-verbose  --batch-stats "
+cmd_tmpl +="--id tract={} filter={} --selectId visit={} --batch-type={} " 
+cmd_tmpl +="--clobber-config --cores {} --job assoc{} --time {} "
+cmd_opt_slrm = " --batch-verbose  --batch-stats "
 cmd_opt_slrm+= "--mpiexec='-bind-to socket' "
 slrm_hasw = "--batch-options='-C haswell -q shared' "
 slrm_knl = "--batch-options='-C knl -q regular' "
 
 
-def main(tract, filters='griz', diff_repo=diff_repo,
+def main(tract, filters='griz', diff_repo=diff_repo, visitab=None,
         outfile='driver_commands/assocCommands.sh', 
         batch='smp', cores=None, rerun=rerun, queue_knl=False, time=100):
+
+    visits_str = ''
+    #file_prefix_templ = 'v*'
+    if visitab is None:
+        for adir in glob(diff_repo+'/deepDiff/v*'):
+            slimdir = adir.split('/')[-1]
+            visitn = slimdir[1:-3]
+            print(slimdir, visitn)
+            visits_str += visitn+'^'
+    elif isinstance(visitab, pd.DataFrame):
+        #import ipdb; ipdb.set_trace()
+        for visitn in visitab.visit.values:
+            visits_str += str(visitn)+'^'
 
     fltrstr = ''
     for afiltr in list(filters):
@@ -46,7 +60,7 @@ def main(tract, filters='griz', diff_repo=diff_repo,
     if cores is None: cores = 8
 
     cmd = cmd_tmpl.format(diff_repo, rerun, tract, fltrstr, 
-                          batch, cores, tract, time)
+                          visits_str[:-1], batch, cores, tract, time)
 
     if batch=='slurm':
         cmd+=cmd_opt_slrm
