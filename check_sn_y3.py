@@ -287,3 +287,7 @@ for asn in lostSN.itertuples():
 
 lostSN['isinCCD_FoV'] = isinCCD
 
+lostSN.to_csv('catalogs+tables/check_lostSN.csv')
+sntables.to_csv('catalogs+tables/check_sntables.csv')
+ctrid_sn_tab.to_csv('catalogs+tables/check_ctrid_sn_tab.csv')
+sn_instcat_table.to_csv('catalogs+tables/check_sn_instcat_table.csv')
