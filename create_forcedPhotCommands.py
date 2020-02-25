@@ -49,11 +49,11 @@ def main(dia_repo=dia_repo, dia_parent=dia_repo_parent, visitab=None,
         for adir in glob(dia_repo_parent+'v*'):
             slimdir = adir.split('/')[-1]
             visitn = slimdir[1:-3]
-            print(slimdir, visitn)
+            #print(slimdir, visitn)
             visits_str += visitn+'^'
     elif isinstance(visitab, pd.DataFrame):
-        for avisit in visitab.visit.values:
-            visits_str += visitn+'^'
+        for visitn in visitab.visit.values:
+            visits_str += str(visitn)+'^'
 
     cmd = cmd_tmpl.format(dia_repo, visits_str[:-1], cores, batch_type, time)
     if batch_type=='slurm':
