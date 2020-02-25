@@ -42,12 +42,6 @@ import lsst.afw.cameraGeom as cameraGeom
 
 from lsst.daf.persistence import Butler
 
-from astropy.visualization import ZScaleInterval
-zscale = ZScaleInterval()
-
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-
 import create_coaddComands as ccoadd 
 import create_multiBandCommands as multib
 import create_diaCommands as cdia
@@ -91,6 +85,7 @@ full_visits = []
 for atract in tpatches:
     print(atract[0])  # prints the number of the tract
     thepatches = atract[1]  # next things on list are the patches
+    tract_visits = []
     for apatch in thepatches:
         print(apatch)
         # Now we have the list of tract+patch 
@@ -100,6 +95,7 @@ for atract in tpatches:
         query = query_tmpl.format(atract[0].getId(), strpatch)
         visitab = pd.read_sql_query(query, conn)
         full_visits.append(visitab)
+        tract_visits.append(visitab)
 
         ccoadd.main(atract[0].getId(), apatch.getIndex(), calexp_repo=repo,
                     output_repo="$SCRATCH/templates_rect", 
@@ -107,23 +103,25 @@ for atract in tpatches:
                     queue_knl=True)
         
         multib.main(atract[0].getId(), apatch.getIndex(), 
-                    filters='ugriz',
+                    filters='griz',
                     repo="$SCRATCH/templates_rect", 
                     rerun='multiband', batch='slurm', queue_knl=True,
                     outfile=multibOutfile)
-    cassoc.main(atract[0].getId(), filters='ugriz', outfile=assocOutfile,
+    tract_visits = pd.concat(tract_visits).drop_duplicates('visit').reset_index(drop=True)
+    cassoc.main(atract[0].getId(), filters='griz', outfile=assocOutfile, visitab=tract_visits,
                 diff_repo="$SCRATCH/templates_rect/rerun/diff_rect",
-                batch='smp', cores=len(thepatches), rerun='assoc_sha', time=500)
+                batch='slurm', queue_knl=True, 
+                cores=len(thepatches), rerun='assoc_thirrun', time=500)
 
 full_visitab = pd.concat(full_visits).drop_duplicates('visit').reset_index(drop=True)
 full_visitab.to_csv('./catalogs+tables/full_visits_from_tractmapping_db.csv')
-          
-cdia.main(filters='ugriz', visit=full_visitab,
+
+cdia.main(filters='griz', visit=full_visitab,
           outfile=diaOutfile, batch='slurm', cores=4, queue_knl=True,
           tmpl_repo="$SCRATCH/templates_rect", rerun="diff_rect", 
           config_path="./config/imageDifferenceDriver_config.py")
 
-cfPhot.main(dia_repo="$SCRATCH/templates_rect/rerun/diff_rect/rerun/assoc_sha",
+cfPhot.main(dia_repo="$SCRATCH/templates_rect/rerun/diff_rect/rerun/assoc_thirrun",
             dia_parent="$SCRATCH/templates_rect/rerun/diff_rect", time=50,
             outfile=forcedOutfile, cores=8, batch_type='slurm', queue_knl=True)
             
