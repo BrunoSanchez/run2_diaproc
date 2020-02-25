@@ -33,7 +33,7 @@ import lsst.geom as geom
 
 from lsst.afw.geom import makeSkyWcs
 from lsst.obs.lsst.imsim import ImsimMapper
-
+from lsst.sims.utils import ObservationMetaData
 from lsst.sims.utils import angularSeparation
 from lsst.sims.utils import getRotSkyPos
 from lsst.sims.catUtils import supernovae
@@ -63,7 +63,8 @@ dbname = '/global/projecta/projectdirs/lsst/groups/SSim/DC2/minion_1016_desc_dit
 ObsMetaData = ObservationMetaDataGenerator(database=dbname)
 
 # SNe database
-database = '/global/cscratch1/sd/bos0109/sne_params_cosmoDC2_v1.1_181121.db'
+#database = '/global/cscratch1/sd/bos0109/sne_params_cosmoDC2_v1.1_181121.db'
+database = '/global/projecta/projectdirs/lsst/groups/SSim/DC2/cosmoDC2_v1.1.4/sne_cosmoDC2_v1.1.4_MS.db'
 
 conn = sqlite3.connect(database)
 c = conn.cursor()
@@ -163,7 +164,7 @@ def main(ramax=58, ramin=56, decmin=-32, decmax=-31, t0=59215, tm=61406):
             contain = [box.contains(afwGeom.Point2I(wcs.skyToPixel(sn_skyp))) \
                            for box, wcs in zip(boxes, wcsl)]
             observed = np.sum(contain) > 0
-            observable = observed & (mag + mag_er < 27.0) & (mag_er < 0.5)
+            observable = observed & (flux > 0.0) #(mag + mag_er < 27.0) & (mag_er < 0.5)
             # if observed:
             #     print('Overlaps ccd', names[np.where(contain)[0][0]])      
             sn_observable.append(observable)      
@@ -184,6 +185,7 @@ def main(ramax=58, ramin=56, decmin=-32, decmax=-31, t0=59215, tm=61406):
         n_trueobserv.append(np.sum(sn_observable))
     sntab['Nobserv'] = n_observ
     sntab['N_trueobserv'] = n_trueobserv
+
     lightcurves = pd.DataFrame(data_cols)
     dest_lc = './lightcurves/lightcurves_cat_rect_{}_{}_{}_{}.csv'
     lightcurves.to_csv(dest_lc.format(ramax, ramin, decmax, decmin))
