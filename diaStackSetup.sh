@@ -19,5 +19,6 @@ setup -jr $HOME/dia_pipe/
 #scons
 #cd ..
 setup -jr $HOME/obs_lsst/
+setup -jr $HOME/pipe_tasks/
 export HDF5_USE_FILE_LOCKING=FALSE
 export OMP_NUM_THREADS=1
