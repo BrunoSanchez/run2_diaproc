@@ -24,12 +24,15 @@
 # NEEDS TO RUN USING desc-dia 
 
 import os
+os.environ['SCRATCH']='/global/cscratch1/sd/bos0109'
+SCRATCH = '/global/cscratch1/sd/bos0109'
+
 import sqlite3
 
 import numpy as np
 
 #import lsst.afw.cameraGeom
-import lsst.afw.geom as afwGeom
+#import lsst.afw.geom as afwGeom   ## deprecated
 import lsst.geom as geom
 
 import matplotlib.pyplot as plt
@@ -59,10 +62,60 @@ diabutler = Butler(forcerepo)
 
 #truth_lightc = pd.read_csv('./lightcurves/lightcurves_cat_rect_58.0_56.0_-31.0_-32.0.csv')
 #sntab = pd.read_csv('./catalogs+tables/supernovae_cat_rect_58.0_56.0_-31.0_-32.0.csv')
-
-diaSrc_store = pd.HDFStore('/global/homes/b/bos0109/run2_diaproc/results/diaSrc_secrun_fulltables_v4.h5')
+store = f'{SCRATCH}/results/diaSrc_secrun_fulltables_v5.h5'
+diaSrc_store = pd.HDFStore(store)
 diaSrc_store.open()
 metacols = ['id', 'visit', 'filter', 'raftName', 'detectorName', 'detector']
+
+# =============================================================================
+# optimizing df
+# =============================================================================
+# We're going to be calculating memory usage a lot,
+# so we'll create a function to save us some time!
+def mem_usage(pandas_obj):
+    if isinstance(pandas_obj,pd.DataFrame):
+        usage_b = pandas_obj.memory_usage(deep=True).sum()
+    else: # we assume if not a df it's a series
+        usage_b = pandas_obj.memory_usage(deep=True)
+    usage_mb = usage_b / 1024 ** 2 # convert bytes to megabytes
+    return "{:03.2f} MB".format(usage_mb)
+
+
+def optimize_df(df):
+    df_int = df.select_dtypes(include=['int'])
+    #converted_int = df_int.apply(pd.to_numeric, downcast='unsigned')
+
+    #print(mem_usage(df_int))
+    #print(mem_usage(converted_int))
+
+    compare_ints = pd.concat([df_int.dtypes,converted_int.dtypes],axis=1)
+    compare_ints.columns = ['before','after']
+    compare_ints.apply(pd.Series.value_counts)
+
+    df_float = df.select_dtypes(include=['float'])
+    converted_float = df_float.apply(pd.to_numeric,downcast='float')
+
+    #print(mem_usage(df_float))
+    #print(mem_usage(converted_float))
+
+    compare_floats = pd.concat([df_float.dtypes,converted_float.dtypes],axis=1)
+    compare_floats.columns = ['before','after']
+    compare_floats.apply(pd.Series.value_counts)
+
+    optimized_df = df.copy()
+
+    optimized_df[converted_int.columns] = converted_int
+    optimized_df[converted_float.columns] = converted_float
+
+    mem_df = mem_usage(df)
+    mem_op_df = mem_usage(optimized_df)
+    print(mem_df)
+    print(mem_op_df)
+    if mem_df<=mem_op_df:
+        print('Memory increased, returning original')
+        return df
+
+    return optimized_df
 
 ## ========================================================================== ##
 ## =================== Matching iterating over t+p ========================== ##
@@ -76,10 +129,10 @@ decmin = -32
 
 ## from here we can pick the list of tract+patches
 # creating a rectangle of 2 sq. degree for tract/patch search
-radec_NE = afwGeom.SpherePoint(ramax, decmax, afwGeom.degrees)
-radec_SE = afwGeom.SpherePoint(ramax, decmin, afwGeom.degrees)
-radec_SW = afwGeom.SpherePoint(ramin, decmin, afwGeom.degrees)
-radec_NW = afwGeom.SpherePoint(ramin, decmax, afwGeom.degrees)
+radec_NE = geom.SpherePoint(ramax, decmax, geom.degrees)
+radec_SE = geom.SpherePoint(ramax, decmin, geom.degrees)
+radec_SW = geom.SpherePoint(ramin, decmin, geom.degrees)
+radec_NW = geom.SpherePoint(ramin, decmax, geom.degrees)
 rect = [radec_NE, radec_NW, radec_SW, radec_SE]
 
 tpatches = skymap.findTractPatchList(rect)
@@ -104,9 +157,13 @@ for tract, patches in tpatches:
         metadata = metadata[metadata['filter']!='y']
         #metadata['tract'] = tpId['tract']
         #metadata['patch'] = tpId['patch']
+        
+        #metadata = optimize_df(metadata)
+        
         metas.append(metadata)
 metadata = pd.concat(metas).drop_duplicates()
 cats = []
+firstcat = None
 path = os.path.join(forcerepo, 'deepDiff')
 #diffpath = 'v{}-f{}/{}/diaSrc_{}-{}-{}-{}-det{}.fits'
 diffpath = 'v{}-f{}/{}/diaForced_{}-{}-{}-{}-det{}.fits'
@@ -119,6 +176,8 @@ for idx, idr, vn, fna, raf, detN, det, in metadata.itertuples():
         catalog = diabutler.get('deepDiff_forced_diaSrc', visit=vn, 
                 #tract=int(t), patch=p, 
                 detector=det).asAstropy()
+        if firstcat is None:
+            firstcat = diabutler.get('deepDiff_forced_diaSrc', visit=vn, detector=det)
         if len(catalog) != 0:
             catalog['visit_n'] = vn
             catalog['filter'] = fna
@@ -129,6 +188,18 @@ for idx, idr, vn, fna, raf, detN, det, in metadata.itertuples():
 #import ipdb; ipdb.set_trace()
 mastercat = vstack(cats)
 mastercat = mastercat.to_pandas()
+#mastercat = optimize_df(mastercat)
+
+fullschema = list(firstcat.schema)
+with open('schema_forced.txt', 'w') as schemafile:
+    schemafile.write('Name'.ljust(54)+' Doc\n')
+    for asch in fullschema:
+        field = asch.getField()
+        schemafile.write(field.getName().ljust(54))
+        schemafile.write(' ')
+        schemafile.write(field.getDoc())
+        schemafile.write('\n')
+
 #diaSrc_store[store_key] = mastercat
 diaSrc_store['full_table_forced'] = mastercat
 diaSrc_store.flush()
@@ -155,10 +226,13 @@ for tract, patches in tpatches:
         metadata = metadata[metadata['filter']!='y']
         #metadata['tract'] = tpId['tract']
         #metadata['patch'] = tpId['patch']
+
+        #metadata = optimize_df(metadata)        
         metas.append(metadata)
 metadata = pd.concat(metas).drop_duplicates()
 
 cats = []
+#firstcat = None
 path = os.path.join(diarepo, 'deepDiff')
 diffpath = 'v{}-f{}/{}/diaSrc_{}-{}-{}-{}-det{}.fits'
 #diffpath = 'v{}-f{}/{}/diaForced_{}-{}-{}-{}-det{}.fits'
@@ -171,6 +245,8 @@ for idx, idr, vn, fna, raf, detN, det in metadata.itertuples():
         catalog = diabutler.get('deepDiff_diaSrc', visit=vn, 
                 #tract=int(t), patch=p, 
                 detector=det).asAstropy()
+        #if firstcat is None:
+        #    firstcat = diabutler.get('deepDiff_diaSrc', visit=vn, detector=det)
         if len(catalog) != 0:
             catalog['visit_n'] = vn
             catalog['filter'] = fna
@@ -178,11 +254,28 @@ for idx, idr, vn, fna, raf, detN, det in metadata.itertuples():
             catalog['sensor'] = detN
             catalog['detector'] = det
             cats.append(catalog)
+
 #import ipdb; ipdb.set_trace()
+
 mastercat = vstack(cats)
 mastercat = mastercat.to_pandas()
 #diaSrc_store[store_key] = mastercat
+#mastercat = optimize_df(mastercat)
+
 diaSrc_store['full_table'] = mastercat
 diaSrc_store.flush()
+print('done storing stuff in {}'.format(store))
 # endregion -------------------------------------------------------------------------------------------
 diaSrc_store.close()
+
+
+#fullschema = list(firstcat.schema)
+#with open('schema.txt', 'w') as schemafile:
+#    schemafile.write('Name'.ljust(54)+' Doc\n')
+#    for asch in fullschema:
+#        field = asch.getField()
+
+#        schemafile.write(field.getName().ljust(54))
+#        schemafile.write(' ')
+#        schemafile.write(field.getDoc())
+#        schemafile.write('\n')
