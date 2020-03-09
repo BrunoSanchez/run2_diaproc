@@ -24,6 +24,9 @@
 # NEEDS TO RUN USING desc-dia 
 
 import os
+os.environ['SCRATCH']='/global/cscratch1/sd/bos0109'
+SCRATCH = %env SCRATCH
+
 import sqlite3
 
 from glob import glob
@@ -52,7 +55,7 @@ skymap = b.get('deepCoadd_skyMap')
 
 template_repo = '/global/cscratch1/sd/bos0109/templates_rect'
 diarepo = template_repo + '/rerun/diff_rect'
-assocrepo = diarepo + '/rerun/assoc_secrun'
+assocrepo = diarepo + '/rerun/assoc_thirrun'
 forcerepo = assocrepo + '/rerun/forcedPhot' 
 tmprepo = template_repo + '/rerun/multiband'
 
@@ -79,9 +82,17 @@ sntab = sntab[sntab.N_trueobserv!=0]
 #sntab = pd.read_csv('./catalogs+tables/supernovae_cat_rect_58_56_-31_-32.csv')
 
 #diaSrc_store = pd.HDFStore('/global/cscratch1/sd/bos0109/diaSrc_forced_fulltables_v4.h5')
-diaSrc_store = pd.HDFStore('/global/homes/b/bos0109/run2_diaproc/results/diaSrc_secrun_fulltables_v4.h5')
+diaSrc_store = pd.HDFStore(f'{SCRATCH}/results/diaSrc_secrun_fulltables_v5.h5', mode='r+')
 diaSrc_store.open()
 metacols = ['id', 'visit', 'filter', 'raftName', 'detectorName', 'detector']
+# I have found out that every t+p contains the same information, a single 
+# table of length 947602
+#store_key = str(tract.getId())+'_'+str(patch_i)+str(patch_j)
+diaSrcs_tab = diaSrc_store['full_table'].copy()
+diaSrc_store['new_tab'] = diaSrcs_tab
+
+diaSrcs_tab['epoch_matched'] = False
+diaSrc_store.flush()
 
 #region ------------------------------------------------------------------------
 ## ========================================================================== ##
@@ -114,15 +125,6 @@ radec_NW = afwGeom.SpherePoint(ramin, decmax, afwGeom.degrees)
 rect = [radec_NE, radec_NW, radec_SW, radec_SE]
 tpatches = skymap.findTractPatchList(rect)
 
-# I have found out that every t+p contains the same information, a single 
-# table of length 947602
-#store_key = str(tract.getId())+'_'+str(patch_i)+str(patch_j)
-diaSrcs_tab = diaSrc_store['full_table']
-diaSrc_store['new_table'] = diaSrcs_tab
-
-diaSrcs_tab = diaSrc_store['new_table']
-diaSrcs_tab['epoch_matched'] = False
-diaSrc_store.flush()
 #region  -----------------------------------------------------------------------
 ## iterating over every tract and patch
 d_tol = 2.5*u.arcsec
@@ -144,7 +146,7 @@ for tract, patches in tpatches:
             assoc_table.append(diabutler.get('deepDiff_diaObjectId', 
                                              dataId=tpId).toDataFrame())
         except:
-            print(tpId, 'failed \n')
+            print(tpId, 'failed')
             continue
 assoc_table = pd.concat(assoc_table)
 diaObject_table = vstack(diaObject_table) 
@@ -193,6 +195,7 @@ N_matches = np.sum(match)
 #missed_sn = sntab[~sntab.matched]
 # sn and diaObjects matched would be candidates to TP
 cand_obj = diaObject_table[diaObject_table['match']]
+dia_lcs = []
 for ic in range(len(cand_obj)):
     # both data rows
     diaC = cand_obj[ic]
@@ -206,9 +209,7 @@ for ic in range(len(cand_obj)):
         srcepoch = diaSrcs_tab.query('id == {}'.format(int(anid)))
         if len(srcepoch) is not 0:
             dia_lc.append(srcepoch)
-    #if len(dia_lc) is not 0:
-    #    dia_lc = pd.concat(dia_lc)
-    
+
     # search for SN epochs
     snC_lc = get_truth_LC(truth_lightc, snC.snid_in.values[0])
     sn_epoch_match = np.repeat(False, len(snC_lc))
@@ -229,13 +230,20 @@ for ic in range(len(cand_obj)):
     sn_N_detects = np.sum(truth_lightc[vep_col])
     sntab.loc[sntab.dia_id==diaC['id'], 'n_dia_detections'] = sn_N_detects
 
-diaSrc_store['new_table'] = diaSrcs_tab
+    # store the lightcurve separatedly
+    if len(dia_lc) is not 0:
+        dia_lc = pd.concat(dia_lc)
+        dia_lc['diaObjectId'] = diaC['id']
+        dia_lcs.append(dia_lc)
+
+diaSrc_store['lightcurves'] = pd.concat(dia_lcs)
+diaSrc_store['new_tab'] = diaSrcs_tab
 diaSrc_store.flush()
 print(N_matches, len(sntab), N_matches/len(sntab))
 #endregion ---------------------------------------------------------------------
 #endregion ---------------------------------------------------------------------
-diaObject_table.write('results/diaObject_table.csv', format='csv', overwrite=True)                               
-sntab.to_csv('results/sntab_matched.csv')
+diaObject_table.write(f'{SCRATCH}/results/diaObject_table.csv', format='csv', overwrite=True)                               
+sntab.to_csv(f'{SCRATCH}/results/sntab_matched.csv')
 
 #region --------------------------- bringing everything to same ra-dec frame ---
 sq = (sntab.snra_in <= 58) & (sntab.snra_in >= 56) 
