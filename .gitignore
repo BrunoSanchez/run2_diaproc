@@ -8,4 +8,7 @@
 *.ipynb_checkpoints*
 logs_and_outputs/*
 driver_commands/*.sh
-*.log
+*.lo
+*.csv
+g
+*.out
