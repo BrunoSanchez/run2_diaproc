@@ -1,0 +1,186 @@
+Name                                                   Doc
+id                                                     unique ID
+coord_ra                                               position in ra/dec
+coord_dec                                              position in ra/dec
+parent                                                 unique ID of parent source
+flags_negative                                         set if source was detected as significantly negative
+base_NaiveCentroid_x                                   centroid from Naive Centroid algorithm
+base_NaiveCentroid_y                                   centroid from Naive Centroid algorithm
+base_NaiveCentroid_flag                                General Failure Flag
+base_NaiveCentroid_flag_noCounts                       Object to be centroided has no counts
+base_NaiveCentroid_flag_edge                           Object too close to edge
+base_NaiveCentroid_flag_resetToPeak                    set if CentroidChecker reset the centroid
+base_PeakCentroid_x                                    peak centroid
+base_PeakCentroid_y                                    peak centroid
+base_PeakCentroid_flag                                 Centroiding failed
+base_SdssCentroid_x                                    centroid from Sdss Centroid algorithm
+base_SdssCentroid_y                                    centroid from Sdss Centroid algorithm
+base_SdssCentroid_xErr                                 1-sigma uncertainty on x position
+base_SdssCentroid_yErr                                 1-sigma uncertainty on y position
+base_SdssCentroid_flag                                 General Failure Flag
+base_SdssCentroid_flag_edge                            Object too close to edge
+base_SdssCentroid_flag_noSecondDerivative              Vanishing second derivative
+base_SdssCentroid_flag_almostNoSecondDerivative        Almost vanishing second derivative
+base_SdssCentroid_flag_notAtMaximum                    Object is not at a maximum
+base_SdssCentroid_flag_resetToPeak                     set if CentroidChecker reset the centroid
+ip_diffim_NaiveDipoleCentroid_flag                     general failure flag, set if anything went wrong
+ip_diffim_NaiveDipoleCentroid_pos_flag                 failure flag for positive, set if anything went wrong
+ip_diffim_NaiveDipoleCentroid_neg_flag                 failure flag for negative, set if anything went wrong
+ip_diffim_NaiveDipoleCentroid_x                        unweighted first moment centroid: overall centroid
+ip_diffim_NaiveDipoleCentroid_y                        unweighted first moment centroid: overall centroid
+ip_diffim_NaiveDipoleCentroid_xErr                     1-sigma uncertainty on x position
+ip_diffim_NaiveDipoleCentroid_yErr                     1-sigma uncertainty on y position
+ip_diffim_NaiveDipoleCentroid_pos_x                    unweighted first moment centroid: positive lobe
+ip_diffim_NaiveDipoleCentroid_pos_y                    unweighted first moment centroid: positive lobe
+ip_diffim_NaiveDipoleCentroid_pos_xErr                 1-sigma uncertainty on x position
+ip_diffim_NaiveDipoleCentroid_pos_yErr                 1-sigma uncertainty on y position
+ip_diffim_NaiveDipoleCentroid_neg_x                    unweighted first moment centroid: negative lobe
+ip_diffim_NaiveDipoleCentroid_neg_y                    unweighted first moment centroid: negative lobe
+ip_diffim_NaiveDipoleCentroid_neg_xErr                 1-sigma uncertainty on x position
+ip_diffim_NaiveDipoleCentroid_neg_yErr                 1-sigma uncertainty on y position
+base_SdssShape_xx                                      elliptical Gaussian adaptive moments
+base_SdssShape_yy                                      elliptical Gaussian adaptive moments
+base_SdssShape_xy                                      elliptical Gaussian adaptive moments
+base_SdssShape_xxErr                                   Standard deviation of xx moment
+base_SdssShape_yyErr                                   Standard deviation of yy moment
+base_SdssShape_xyErr                                   Standard deviation of xy moment
+base_SdssShape_x                                       elliptical Gaussian adaptive moments
+base_SdssShape_y                                       elliptical Gaussian adaptive moments
+base_SdssShape_instFlux                                elliptical Gaussian adaptive moments
+base_SdssShape_instFluxErr                             1-sigma instFlux uncertainty
+base_SdssShape_psf_xx                                  adaptive moments of the PSF model at the object position
+base_SdssShape_psf_yy                                  adaptive moments of the PSF model at the object position
+base_SdssShape_psf_xy                                  adaptive moments of the PSF model at the object position
+base_SdssShape_instFlux_xx_Cov                         uncertainty covariance between base_SdssShape_instFlux and base_SdssShape_xx
+base_SdssShape_instFlux_yy_Cov                         uncertainty covariance between base_SdssShape_instFlux and base_SdssShape_yy
+base_SdssShape_instFlux_xy_Cov                         uncertainty covariance between base_SdssShape_instFlux and base_SdssShape_xy
+base_SdssShape_flag                                    General Failure Flag
+base_SdssShape_flag_unweightedBad                      Both weighted and unweighted moments were invalid
+base_SdssShape_flag_unweighted                         Weighted moments converged to an invalid value; using unweighted moments
+base_SdssShape_flag_shift                              centroid shifted by more than the maximum allowed amount
+base_SdssShape_flag_maxIter                            Too many iterations in adaptive moments
+base_SdssShape_flag_psf                                Failure in measuring PSF model shape
+base_CircularApertureFlux_3_0_instFlux                 instFlux within 3.000000-pixel aperture
+base_CircularApertureFlux_3_0_instFluxErr              1-sigma instFlux uncertainty
+base_CircularApertureFlux_3_0_flag                     General Failure Flag
+base_CircularApertureFlux_3_0_flag_apertureTruncated   aperture did not fit within measurement image
+base_CircularApertureFlux_3_0_flag_sincCoeffsTruncated full sinc coefficient image did not fit within measurement image
+base_CircularApertureFlux_4_5_instFlux                 instFlux within 4.500000-pixel aperture
+base_CircularApertureFlux_4_5_instFluxErr              1-sigma instFlux uncertainty
+base_CircularApertureFlux_4_5_flag                     General Failure Flag
+base_CircularApertureFlux_4_5_flag_apertureTruncated   aperture did not fit within measurement image
+base_CircularApertureFlux_4_5_flag_sincCoeffsTruncated full sinc coefficient image did not fit within measurement image
+base_CircularApertureFlux_6_0_instFlux                 instFlux within 6.000000-pixel aperture
+base_CircularApertureFlux_6_0_instFluxErr              1-sigma instFlux uncertainty
+base_CircularApertureFlux_6_0_flag                     General Failure Flag
+base_CircularApertureFlux_6_0_flag_apertureTruncated   aperture did not fit within measurement image
+base_CircularApertureFlux_6_0_flag_sincCoeffsTruncated full sinc coefficient image did not fit within measurement image
+base_CircularApertureFlux_9_0_instFlux                 instFlux within 9.000000-pixel aperture
+base_CircularApertureFlux_9_0_instFluxErr              1-sigma instFlux uncertainty
+base_CircularApertureFlux_9_0_flag                     General Failure Flag
+base_CircularApertureFlux_9_0_flag_apertureTruncated   aperture did not fit within measurement image
+base_CircularApertureFlux_9_0_flag_sincCoeffsTruncated full sinc coefficient image did not fit within measurement image
+base_CircularApertureFlux_12_0_instFlux                instFlux within 12.000000-pixel aperture
+base_CircularApertureFlux_12_0_instFluxErr             1-sigma instFlux uncertainty
+base_CircularApertureFlux_12_0_flag                    General Failure Flag
+base_CircularApertureFlux_12_0_flag_apertureTruncated  aperture did not fit within measurement image
+base_CircularApertureFlux_17_0_instFlux                instFlux within 17.000000-pixel aperture
+base_CircularApertureFlux_17_0_instFluxErr             1-sigma instFlux uncertainty
+base_CircularApertureFlux_17_0_flag                    General Failure Flag
+base_CircularApertureFlux_17_0_flag_apertureTruncated  aperture did not fit within measurement image
+base_CircularApertureFlux_25_0_instFlux                instFlux within 25.000000-pixel aperture
+base_CircularApertureFlux_25_0_instFluxErr             1-sigma instFlux uncertainty
+base_CircularApertureFlux_25_0_flag                    General Failure Flag
+base_CircularApertureFlux_25_0_flag_apertureTruncated  aperture did not fit within measurement image
+base_CircularApertureFlux_35_0_instFlux                instFlux within 35.000000-pixel aperture
+base_CircularApertureFlux_35_0_instFluxErr             1-sigma instFlux uncertainty
+base_CircularApertureFlux_35_0_flag                    General Failure Flag
+base_CircularApertureFlux_35_0_flag_apertureTruncated  aperture did not fit within measurement image
+base_CircularApertureFlux_50_0_instFlux                instFlux within 50.000000-pixel aperture
+base_CircularApertureFlux_50_0_instFluxErr             1-sigma instFlux uncertainty
+base_CircularApertureFlux_50_0_flag                    General Failure Flag
+base_CircularApertureFlux_50_0_flag_apertureTruncated  aperture did not fit within measurement image
+base_CircularApertureFlux_70_0_instFlux                instFlux within 70.000000-pixel aperture
+base_CircularApertureFlux_70_0_instFluxErr             1-sigma instFlux uncertainty
+base_CircularApertureFlux_70_0_flag                    General Failure Flag
+base_CircularApertureFlux_70_0_flag_apertureTruncated  aperture did not fit within measurement image
+base_GaussianFlux_instFlux                             instFlux from Gaussian Flux algorithm
+base_GaussianFlux_instFluxErr                          1-sigma instFlux uncertainty
+base_GaussianFlux_flag                                 General Failure Flag
+base_PeakLikelihoodFlux_instFlux                       instFlux from PeakLikelihood Flux algorithm
+base_PeakLikelihoodFlux_instFluxErr                    1-sigma instFlux uncertainty
+base_PeakLikelihoodFlux_flag                           General Failure Flag
+base_PixelFlags_flag                                   General failure flag, set if anything went wrong
+base_PixelFlags_flag_offimage                          Source center is off image
+base_PixelFlags_flag_edge                              Source is outside usable exposure region (masked EDGE or NO_DATA)
+base_PixelFlags_flag_interpolated                      Interpolated pixel in the Source footprint
+base_PixelFlags_flag_saturated                         Saturated pixel in the Source footprint
+base_PixelFlags_flag_cr                                Cosmic ray in the Source footprint
+base_PixelFlags_flag_bad                               Bad pixel in the Source footprint
+base_PixelFlags_flag_suspect                           Source''s footprint includes suspect pixels
+base_PixelFlags_flag_interpolatedCenter                Interpolated pixel in the Source center
+base_PixelFlags_flag_saturatedCenter                   Saturated pixel in the Source center
+base_PixelFlags_flag_crCenter                          Cosmic ray in the Source center
+base_PixelFlags_flag_suspectCenter                     Source''s center is close to suspect pixels
+base_PsfFlux_instFlux                                  instFlux derived from linear least-squares fit of PSF model
+base_PsfFlux_instFluxErr                               1-sigma instFlux uncertainty
+base_PsfFlux_area                                      effective area of PSF
+base_PsfFlux_flag                                      General Failure Flag
+base_PsfFlux_flag_noGoodPixels                         not enough non-rejected pixels in data to attempt the fit
+base_PsfFlux_flag_edge                                 object was too close to the edge of the image to use the full PSF model
+ip_diffim_NaiveDipoleFlux_flag                         general failure flag, set if anything went wrong
+ip_diffim_NaiveDipoleFlux_pos_flag                     failure flag for positive, set if anything went wrong
+ip_diffim_NaiveDipoleFlux_neg_flag                     failure flag for negative, set if anything went wrong
+ip_diffim_NaiveDipoleFlux_pos_instFlux                 raw flux counts: positive lobe
+ip_diffim_NaiveDipoleFlux_pos_instFluxErr              1-sigma instFlux uncertainty
+ip_diffim_NaiveDipoleFlux_neg_instFlux                 raw flux counts: negative lobe
+ip_diffim_NaiveDipoleFlux_neg_instFluxErr              1-sigma instFlux uncertainty
+ip_diffim_NaiveDipoleFlux_npos                         number of positive pixels
+ip_diffim_NaiveDipoleFlux_nneg                         number of negative pixels
+ip_diffim_PsfDipoleFlux_flag                           general failure flag, set if anything went wrong
+ip_diffim_PsfDipoleFlux_pos_flag                       failure flag for positive, set if anything went wrong
+ip_diffim_PsfDipoleFlux_neg_flag                       failure flag for negative, set if anything went wrong
+ip_diffim_PsfDipoleFlux_pos_instFlux                   jointly fitted psf flux counts: positive lobe
+ip_diffim_PsfDipoleFlux_pos_instFluxErr                1-sigma instFlux uncertainty
+ip_diffim_PsfDipoleFlux_neg_instFlux                   jointly fitted psf flux counts: negative lobe
+ip_diffim_PsfDipoleFlux_neg_instFluxErr                1-sigma instFlux uncertainty
+ip_diffim_PsfDipoleFlux_chi2dof                        chi2 per degree of freedom of fit
+ip_diffim_PsfDipoleFlux_pos_centroid_x                 psf fitted center of positive lobe
+ip_diffim_PsfDipoleFlux_pos_centroid_y                 psf fitted center of positive lobe
+ip_diffim_PsfDipoleFlux_pos_centroid_xErr              1-sigma uncertainty on x position
+ip_diffim_PsfDipoleFlux_pos_centroid_yErr              1-sigma uncertainty on y position
+ip_diffim_PsfDipoleFlux_neg_centroid_x                 psf fitted center of negative lobe
+ip_diffim_PsfDipoleFlux_neg_centroid_y                 psf fitted center of negative lobe
+ip_diffim_PsfDipoleFlux_neg_centroid_xErr              1-sigma uncertainty on x position
+ip_diffim_PsfDipoleFlux_neg_centroid_yErr              1-sigma uncertainty on y position
+ip_diffim_PsfDipoleFlux_centroid_x                     average of negative and positive lobe positions
+ip_diffim_PsfDipoleFlux_centroid_y                     average of negative and positive lobe positions
+ip_diffim_PsfDipoleFlux_centroid_xErr                  1-sigma uncertainty on x position
+ip_diffim_PsfDipoleFlux_centroid_yErr                  1-sigma uncertainty on y position
+ip_diffim_ClassificationDipole_value                   Set to 1 for dipoles, else 0.
+ip_diffim_ClassificationDipole_flag                    Set to 1 for any fatal failure.
+ip_diffim_DipoleFit_pos_instFlux                       Dipole pos lobe flux
+ip_diffim_DipoleFit_pos_instFluxErr                    1-sigma uncertainty for pos dipole flux
+ip_diffim_DipoleFit_pos_centroid_x                     Dipole pos lobe centroid
+ip_diffim_DipoleFit_pos_centroid_y                     Dipole pos lobe centroid
+ip_diffim_DipoleFit_neg_instFlux                       Dipole neg lobe flux
+ip_diffim_DipoleFit_neg_instFluxErr                    1-sigma uncertainty for neg dipole flux
+ip_diffim_DipoleFit_neg_centroid_x                     Dipole neg lobe centroid
+ip_diffim_DipoleFit_neg_centroid_y                     Dipole neg lobe centroid
+ip_diffim_DipoleFit_centroid_x                         Dipole centroid
+ip_diffim_DipoleFit_centroid_y                         Dipole centroid
+ip_diffim_DipoleFit_instFlux                           Dipole overall flux
+ip_diffim_DipoleFit_orientation                        Dipole orientation
+ip_diffim_DipoleFit_separation                         Pixel separation between positive and negative lobes of dipole
+ip_diffim_DipoleFit_chi2dof                            Chi2 per degree of freedom of dipole fit
+ip_diffim_DipoleFit_signalToNoise                      Estimated signal-to-noise of dipole fit
+ip_diffim_DipoleFit_flag_classification                Flag indicating diaSource is classified as a dipole
+ip_diffim_DipoleFit_flag_classificationAttempted       Flag indicating diaSource was attempted to be classified as a dipole
+ip_diffim_DipoleFit_flag                               General failure flag for dipole fit
+ip_diffim_DipoleFit_flag_edge                          Flag set when dipole is too close to edge of image
+ip_diffim_forced_PsfFlux_instFlux                      Forced PSF flux measured on the direct image.
+ip_diffim_forced_PsfFlux_instFluxErr                   Forced PSF flux error measured on the direct image.
+ip_diffim_forced_PsfFlux_area                          Forced PSF flux effective area of PSF.
+ip_diffim_forced_PsfFlux_flag                          Forced PSF flux general failure flag.
+ip_diffim_forced_PsfFlux_flag_noGoodPixels             Forced PSF flux not enough non-rejected pixels in data to attempt the fit.
+ip_diffim_forced_PsfFlux_flag_edge                     Forced PSF flux object was too close to the edge of the image to use the full PSF model.

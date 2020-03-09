@@ -1,0 +1,56 @@
+Name                                                   Doc
+id                                                     unique ID
+coord_ra                                               position in ra/dec
+coord_dec                                              position in ra/dec
+parent                                                 unique ID of parent source
+dia_object_id                                          unique ID
+base_DiaTransformedCentroid_x                          transformed reference centroid column
+base_DiaTransformedCentroid_y                          transformed reference centroid row
+base_SdssShape_xx                                      elliptical Gaussian adaptive moments
+base_SdssShape_yy                                      elliptical Gaussian adaptive moments
+base_SdssShape_xy                                      elliptical Gaussian adaptive moments
+base_SdssShape_xxErr                                   Standard deviation of xx moment
+base_SdssShape_yyErr                                   Standard deviation of yy moment
+base_SdssShape_xyErr                                   Standard deviation of xy moment
+base_SdssShape_x                                       elliptical Gaussian adaptive moments
+base_SdssShape_y                                       elliptical Gaussian adaptive moments
+base_SdssShape_instFlux                                elliptical Gaussian adaptive moments
+base_SdssShape_instFluxErr                             1-sigma instFlux uncertainty
+base_SdssShape_psf_xx                                  adaptive moments of the PSF model at the object position
+base_SdssShape_psf_yy                                  adaptive moments of the PSF model at the object position
+base_SdssShape_psf_xy                                  adaptive moments of the PSF model at the object position
+base_SdssShape_instFlux_xx_Cov                         uncertainty covariance between base_SdssShape_instFlux and base_SdssShape_xx
+base_SdssShape_instFlux_yy_Cov                         uncertainty covariance between base_SdssShape_instFlux and base_SdssShape_yy
+base_SdssShape_instFlux_xy_Cov                         uncertainty covariance between base_SdssShape_instFlux and base_SdssShape_xy
+base_SdssShape_flag                                    General Failure Flag
+base_SdssShape_flag_unweightedBad                      Both weighted and unweighted moments were invalid
+base_SdssShape_flag_unweighted                         Weighted moments converged to an invalid value; using unweighted moments
+base_SdssShape_flag_shift                              centroid shifted by more than the maximum allowed amount
+base_SdssShape_flag_maxIter                            Too many iterations in adaptive moments
+base_SdssShape_flag_psf                                Failure in measuring PSF model shape
+base_LocalBackground_instFlux                          background in annulus around source
+base_LocalBackground_instFluxErr                       1-sigma instFlux uncertainty
+base_LocalBackground_flag                              General Failure Flag
+base_LocalBackground_flag_noGoodPixels                 no good pixels in the annulus
+base_LocalBackground_flag_noPsf                        no PSF provided
+base_PixelFlags_flag                                   General failure flag, set if anything went wrong
+base_PixelFlags_flag_offimage                          Source center is off image
+base_PixelFlags_flag_edge                              Source is outside usable exposure region (masked EDGE or NO_DATA)
+base_PixelFlags_flag_interpolated                      Interpolated pixel in the Source footprint
+base_PixelFlags_flag_saturated                         Saturated pixel in the Source footprint
+base_PixelFlags_flag_cr                                Cosmic ray in the Source footprint
+base_PixelFlags_flag_bad                               Bad pixel in the Source footprint
+base_PixelFlags_flag_suspect                           Source''s footprint includes suspect pixels
+base_PixelFlags_flag_interpolatedCenter                Interpolated pixel in the Source center
+base_PixelFlags_flag_saturatedCenter                   Saturated pixel in the Source center
+base_PixelFlags_flag_crCenter                          Cosmic ray in the Source center
+base_PixelFlags_flag_suspectCenter                     Source''s center is close to suspect pixels
+base_PsfFlux_instFlux                                  instFlux derived from linear least-squares fit of PSF model
+base_PsfFlux_instFluxErr                               1-sigma instFlux uncertainty
+base_PsfFlux_area                                      effective area of PSF
+base_PsfFlux_flag                                      General Failure Flag
+base_PsfFlux_flag_noGoodPixels                         not enough non-rejected pixels in data to attempt the fit
+base_PsfFlux_flag_edge                                 object was too close to the edge of the image to use the full PSF model
+base_PsfFlux_apCorr                                    aperture correction applied to base_PsfFlux
+base_PsfFlux_apCorrErr                                 standard deviation of aperture correction applied to base_PsfFlux
+base_PsfFlux_flag_apCorr                               set if unable to aperture correct base_PsfFlux
