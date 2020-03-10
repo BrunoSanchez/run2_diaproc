@@ -27,7 +27,13 @@ from lsst.meas.algorithms import LoadIndexedReferenceObjectsTask
 
 config.imageDifference.refObjLoader.retarget(LoadIndexedReferenceObjectsTask)
 config.imageDifference.refObjLoader.load(os.path.join(getPackageDir('obs_lsst'), 'config', 'filterMap.py'))
+config.ccdKey = 'detector'
+
 config.imageDifference.kernelSourcesFromRef = True
 #config.imageDifference.doPreconvolve = True
-config.ccdKey = 'detector'
-config.imageDifference.writeTemplate = True
+#config.imageDifference.subtract = 'zogy'
+#config.imageDifference.writeTemplate = True
+#config.doWriteSubtractedExp = True
+#config.doWriteMatchedExp = True
+#config.doDecorrelation = True 
+#config.doSpatiallyVarying = True
