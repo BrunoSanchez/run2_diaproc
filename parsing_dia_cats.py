@@ -151,6 +151,28 @@ for tract, patches in tpatches:
 assoc_table = pd.concat(assoc_table)
 diaObject_table = vstack(diaObject_table) 
 
+#region --------------------------- bringing everything to same ra-dec frame ---
+sq = (sntab.snra_in <= 58) & (sntab.snra_in >= 56) 
+sq = sq & (sntab.sndec_in >= -32) & (sntab.sndec_in <= -31) 
+sntab = sntab[sq]
+
+diaObject_table['coord_ra_deg'] = diaObject_table['coord_ra'].to(u.deg)
+diaObject_table['coord_dec_deg'] = diaObject_table['coord_dec'].to(u.deg)
+sq = (diaObject_table['coord_ra_deg'] >=  56) 
+sq = sq & (diaObject_table['coord_ra_deg'] <= 58)
+sq = sq & (diaObject_table['coord_dec_deg'] >= -32) 
+sq = sq & (diaObject_table['coord_dec_deg'] <= -31)
+diaObject_table = diaObject_table[sq]
+
+diaSrcs_tab['coord_ra_deg'] = np.rad2deg(diaSrcs_tab['coord_ra'])
+diaSrcs_tab['coord_dec_deg'] = np.rad2deg(diaSrcs_tab['coord_dec'])
+sq = (diaSrcs_tab['coord_ra_deg'] >=  56) 
+sq = sq & (diaSrcs_tab['coord_ra_deg'] <= 58)
+sq = sq & (diaSrcs_tab['coord_dec_deg'] >= -32) 
+sq = sq & (diaSrcs_tab['coord_dec_deg'] <= -31)
+diaSrcs_tab = diaSrcs_tab[sq]
+#endregion  --------------------------------------------------------------------
+
 sn_coord = SkyCoord(ra=sntab.snra_in*u.deg, 
                     dec=sntab.sndec_in*u.deg, frame='icrs')
 diaO_coord = SkyCoord(ra=diaObject_table['coord_ra'], 
@@ -182,7 +204,7 @@ sntab['n_dia_detections'] = 0
 diaObject_table['match'] = matchO
 diaObject_table['sn_row'] = idx_
 diaObject_table['match_ang_dist'] = d2d_.to(u.arcsec)
-diaObject_table['sn_id'] = sntab.iloc[idx_]['galaxy_id'].values
+diaObject_table['sn_id'] = sntab.iloc[idx_]['snid_in'].values
 
 N_matches = np.sum(match)
 #endregion ---------------------------------------------------------------------
@@ -242,32 +264,10 @@ diaSrc_store.flush()
 print(N_matches, len(sntab), N_matches/len(sntab))
 #endregion ---------------------------------------------------------------------
 #endregion ---------------------------------------------------------------------
+diaSrc_store['matched_tab'] = diaSrcs_tab 
+
 diaObject_table.write(f'{SCRATCH}/results/diaObject_table.csv', format='csv', overwrite=True)                               
 sntab.to_csv(f'{SCRATCH}/results/sntab_matched.csv')
-
-#region --------------------------- bringing everything to same ra-dec frame ---
-sq = (sntab.snra_in <= 58) & (sntab.snra_in >= 56) 
-sq = sq & (sntab.sndec_in >= -32) & (sntab.sndec_in <= -31) 
-sntab = sntab[sq]
-
-diaObject_table['coord_ra_deg'] = diaObject_table['coord_ra'].to(u.deg)
-diaObject_table['coord_dec_deg'] = diaObject_table['coord_dec'].to(u.deg)
-sq = (diaObject_table['coord_ra_deg'] >=  56) 
-sq = sq & (diaObject_table['coord_ra_deg'] <= 58)
-sq = sq & (diaObject_table['coord_dec_deg'] >= -32) 
-sq = sq & (diaObject_table['coord_dec_deg'] <= -31)
-diaObject_table = diaObject_table[sq]
-
-diaSrcs_tab['coord_ra_deg'] = np.rad2deg(diaSrcs_tab['coord_ra'])
-diaSrcs_tab['coord_dec_deg'] = np.rad2deg(diaSrcs_tab['coord_dec'])
-sq = (diaSrcs_tab['coord_ra_deg'] >=  56) 
-sq = sq & (diaSrcs_tab['coord_ra_deg'] <= 58)
-sq = sq & (diaSrcs_tab['coord_dec_deg'] >= -32) 
-sq = sq & (diaSrcs_tab['coord_dec_deg'] <= -31)
-diaSrcs_tab = diaSrcs_tab[sq]
-
-diaSrc_store['matched_tab'] = diaSrcs_tab 
-#endregion  --------------------------------------------------------------------
 
 #region ------------------------------------ unfolding the lightcurves ---------
 # to build the missed target samples we still need to unfold the table of
