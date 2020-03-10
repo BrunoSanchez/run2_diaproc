@@ -179,11 +179,13 @@ for idx, idr, vn, fna, raf, detN, det, in metadata.itertuples():
         if firstcat is None:
             firstcat = diabutler.get('deepDiff_forced_diaSrc', visit=vn, detector=det)
         if len(catalog) != 0:
+            info = diabutler.get('calexp', visit=vn, detector=det).getInfo().getVisitInfo()
             catalog['visit_n'] = vn
             catalog['filter'] = fna
             catalog['raft'] = raf
             catalog['sensor'] = detN
             catalog['detector'] = det
+            catalog['mjd'] = info.getDate().get()
             cats.append(catalog)
 #import ipdb; ipdb.set_trace()
 mastercat = vstack(cats)
@@ -248,11 +250,13 @@ for idx, idr, vn, fna, raf, detN, det in metadata.itertuples():
         #if firstcat is None:
         #    firstcat = diabutler.get('deepDiff_diaSrc', visit=vn, detector=det)
         if len(catalog) != 0:
+            info = diabutler.get('calexp', visit=vn, detector=det).getInfo().getVisitInfo()
             catalog['visit_n'] = vn
             catalog['filter'] = fna
             catalog['raft'] = raf
             catalog['sensor'] = detN
             catalog['detector'] = det
+            catalog['mjd'] = info.getDate().get()
             cats.append(catalog)
 
 #import ipdb; ipdb.set_trace()
