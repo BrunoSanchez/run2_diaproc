@@ -62,7 +62,7 @@ diabutler = Butler(forcerepo)
 
 #truth_lightc = pd.read_csv('./lightcurves/lightcurves_cat_rect_58.0_56.0_-31.0_-32.0.csv')
 #sntab = pd.read_csv('./catalogs+tables/supernovae_cat_rect_58.0_56.0_-31.0_-32.0.csv')
-store = f'{SCRATCH}/results/diaSrc_secrun_fulltables_v5.h5'
+store = f'{SCRATCH}/results/diaSrc_thirrun_fulltables_v1.h5'
 diaSrc_store = pd.HDFStore(store)
 diaSrc_store.open()
 metacols = ['id', 'visit', 'filter', 'raftName', 'detectorName', 'detector']
@@ -139,62 +139,186 @@ tpatches = skymap.findTractPatchList(rect)
 
 # region ----------------------------------------------------------------------------------------------
 # iterating over tract and patches to build diaForced catalogues
-metas = []
-for tract, patches in tpatches:
-    tract_info = skymap[tract.getId()]
-    for patch in patches:
-        # identify the t+p
-        patch_i, patch_j = patch.getIndex()
-        patch_str = '{},{}'.format(patch_i, patch_j)
-        tpId = {'tract': tract.getId(), 'patch': patch_str}
-      
-        #store_key = str(tract.getId())+'_'+str(patch_i)+str(patch_j)
-        #if store_key in diaSrc_store: continue
-        print('starting with ', tpId)
-        metadata = diabutler.queryMetadata('deepDiff_forced_diaSrc', metacols,dataId=tpId)
-        metadata = pd.DataFrame(metadata, columns=metacols)
-        metadata = metadata[metadata['filter']!='u']
-        metadata = metadata[metadata['filter']!='y']
-        #metadata['tract'] = tpId['tract']
-        #metadata['patch'] = tpId['patch']
-        
-        #metadata = optimize_df(metadata)
-        
-        metas.append(metadata)
-metadata = pd.concat(metas).drop_duplicates()
-cats = []
-firstcat = None
-path = os.path.join(forcerepo, 'deepDiff')
-#diffpath = 'v{}-f{}/{}/diaSrc_{}-{}-{}-{}-det{}.fits'
-diffpath = 'v{}-f{}/{}/diaForced_{}-{}-{}-{}-det{}.fits'
-for idx, idr, vn, fna, raf, detN, det, in metadata.itertuples():
-    #if fna=='y' or fna=='u': continue
-    pp = diffpath.format(str(vn).zfill(8), fna, raf, str(vn).zfill(8), 
-                            fna, raf, detN, str(det).zfill(3))
-    dpath = os.path.join(path, pp)
-    if os.path.exists(dpath):
-        catalog = diabutler.get('deepDiff_forced_diaSrc', visit=vn, 
-                #tract=int(t), patch=p, 
-                detector=det).asAstropy()
-        if firstcat is None:
-            firstcat = diabutler.get('deepDiff_forced_diaSrc', visit=vn, detector=det)
-        if len(catalog) != 0:
-            info = diabutler.get('calexp', visit=vn, detector=det).getInfo().getVisitInfo()
-            catalog['visit_n']  = vn
-            catalog['filter']   = fna
-            catalog['raft']     = raf
-            catalog['sensor']   = detN
-            catalog['detector'] = det
-            catalog['mjd']      = info.getDate().get()
-            catalog['airmass']  = info.getBoresightAirmass()
-            cats.append(catalog)
-#import ipdb; ipdb.set_trace()
-mastercat = vstack(cats)
-mastercat = mastercat.to_pandas()
-#mastercat = optimize_df(mastercat)
+if '/full_table_forced' not in diaSrc_store.keys():
+    if os.path.isfile( f'{SCRATCH}/results/forced_metadata.csv' ):
+        metadata = pd.read_csv(  f'{SCRATCH}/results/forced_metadata.csv')
+    else:
+        metas = []
+        for tract, patches in tpatches:
+            tract_info = skymap[tract.getId()]
+            for patch in patches:
+                # identify the t+p
+                patch_i, patch_j = patch.getIndex()
+                patch_str = '{},{}'.format(patch_i, patch_j)
+                tpId = {'tract': tract.getId(), 'patch': patch_str}
+                print('starting with ', tpId)
+                metadata = diabutler.queryMetadata('deepDiff_forced_diaSrc', metacols,dataId=tpId)
+                metadata = pd.DataFrame(metadata, columns=metacols)
+                metadata = metadata[metadata['filter']!='u']
+                metadata = metadata[metadata['filter']!='y']
+                #metadata['tract'] = tpId['tract']
+                #metadata['patch'] = tpId['patch']
+                #metadata = optimize_df(metadata)
+                metas.append(metadata)
+        metadata = pd.concat(metas).drop_duplicates()
+        metadata.to_csv( f'{SCRATCH}/results/forced_metadata.csv', index=False)
 
-fullschema = list(firstcat.schema)
-with open('schema_forced.txt', 'w') as schemafile:
+    cats = []
+    path = os.path.join(forcerepo, 'deepDiff')
+    diffpath = 'v{}-f{}/{}/diaForced_{}-{}-{}-{}-det{}.fits'
+    for idx, idr, vn, fna, raf, detN, det in metadata.itertuples():
+        pp = diffpath.format(str(vn).zfill(8), fna, raf, str(vn).zfill(8), 
+                            fna, raf, detN, str(det).zfill(3))
+        dpath = os.path.join(path, pp)
+        if os.path.exists(dpath):
+            cat_raw = diabutler.get('deepDiff_forced_diaSrc', visit=vn, 
+                                    detector=det)#.asAstropy()
+
+            if len(cat_raw) != 0:
+                info = diabutler.get('calexp', visit=vn,
+                                    detector=det).getInfo().getVisitInfo()
+                pcal = diabutler.get('deepDiff_differenceExp_photoCalib', 
+                                    visit=vn, detector=det)
+                cat_cal = pcal.calibrateCatalog(cat_raw)
+                catalog = cat_cal.asAstropy()
+                catalog['visit_n']  = vn
+                catalog['filter']   = fna
+                catalog['raft']     = raf
+                catalog['sensor']   = detN
+                catalog['detector'] = det
+                catalog['mjd']      = info.getDate().get()
+                catalog['airmass']  = info.getBoresightAirmass()
+
+                cats.append(catalog)
+
+    mastercat = vstack(cats)
+    mastercat.write(f'{SCRATCH}/results/full_table_forced_diasrc.fits')
+    mastercat = mastercat.to_pandas()
+    #mastercat = optimize_df(mastercat)
+
+    fullschema = list(cat_cal.schema)
+    with open('schema_forced.txt', 'w') as schemafile:
+        schemafile.write('Name'.ljust(54)+' Doc\n')
+        for asch in fullschema:
+            field = asch.getField()
+            schemafile.write(field.getName().ljust(54))
+            schemafile.write(' ')
+            schemafile.write(field.getDoc())
+            schemafile.write('\n')
+
+    diaSrc_store['full_table_forced'] = mastercat
+    diaSrc_store.flush()
+#endregion -------------------------------------------------------------------------------------------
+
+    del(mastercat)
+    del(cats)
+
+
+#region  -----------------------------------------------------------------------
+## iterating over every tract and patch
+if 'diaObject_table' not in diaSrc_store.keys() or '/assoc_table' not in diaSrc_store.keys():
+    assoc_table = []
+    diaObject_table = []
+    for tract, patches in tpatches:
+        tract_info = skymap[tract.getId()]
+        for patch in patches:
+            # identify the t+p
+            patch_i, patch_j = patch.getIndex()
+            patch_str = '{},{}'.format(patch_i, patch_j)
+            tpId = {'tract': tract.getId(), 'patch': patch_str}
+            ## ask for diaObject
+            try:
+                dOtab = diabutler.get('deepDiff_diaObject', dataId=tpId).asAstropy()
+                dOtab['tract'] = tract.getId()
+                dOtab['patch'] = patch_str
+                diaObject_table.append(dOtab)
+                assoc_table.append(diabutler.get('deepDiff_diaObjectId', 
+                                                dataId=tpId).toDataFrame())
+            except:
+                print(tpId, 'failed')
+                continue
+    assoc_table = pd.concat(assoc_table)
+    diaObject_table = vstack(diaObject_table)
+
+    diaSrc_store['diaObject_table'] = diaObject_table.to_pandas()
+    diaSrc_store['assoc_table'] = assoc_table
+
+    diaSrc_store.flush()
+#endregion
+
+
+## iterating over tract and patches to build diaSrc catalogues
+# region ----------------------------------------------------------------------------------------------
+if '/full_table' not in diaSrc_store.keys():
+    if os.path.isfile( f'{SCRATCH}/results/deepdiff_metadata.csv' ):
+        metadata = pd.read_csv(f'{SCRATCH}/results/deepdiff_metadata.csv')
+    else:
+        metas = []
+        for tract, patches in tpatches:
+            tract_info = skymap[tract.getId()]
+            for patch in patches:
+                # identify the t+p
+                patch_i, patch_j = patch.getIndex()
+                patch_str = '{},{}'.format(patch_i, patch_j)
+                tpId = {'tract': tract.getId(), 'patch': patch_str}
+                print('starting with ', tpId)
+                metadata = diabutler.queryMetadata('deepDiff_diaSrc', metacols,dataId=tpId)
+                metadata = pd.DataFrame(metadata, columns=metacols)
+                metadata = metadata[metadata['filter']!='u']
+                metadata = metadata[metadata['filter']!='y']
+                #metadata['tract'] = tpId['tract']
+                #metadata['patch'] = tpId['patch']      
+                metas.append(metadata)
+        metadata = pd.concat(metas).drop_duplicates()
+        metadata.to_csv(f'{SCRATCH}/results/deepdiff_metadata.csv', index=False)
+
+    #firstcat = None
+    cats = []
+    path = os.path.join(diarepo, 'deepDiff')
+    diffpath = 'v{}-f{}/{}/diaSrc_{}-{}-{}-{}-det{}.fits'
+    for idx, idr, vn, fna, raf, detN, det  in metadata.itertuples():
+        pp = diffpath.format(str(vn).zfill(8), fna, raf, str(vn).zfill(8), 
+                            fna, raf, detN, str(det).zfill(3))
+        dpath = os.path.join(path, pp)
+        if os.path.exists(dpath):
+            print('going with V:{} Det:{}'.format(vn, det))
+            cat_raw = diabutler.get('deepDiff_diaSrc', visit=vn, 
+                                    detector=det)#.asAstropy()
+
+            if len(cat_raw) != 0:
+                info = diabutler.get('calexp', visit=vn, 
+                                    detector=det).getInfo().getVisitInfo()
+                pcal = diabutler.get('deepDiff_differenceExp_photoCalib', 
+                                    visit=vn, detector=det)
+                cat_cal = pcal.calibrateCatalog(cat_raw)
+                catalog = cat_cal.asAstropy()
+
+                catalog['visit_n'] = vn
+                catalog['filter'] = fna
+                catalog['raft'] = raf
+                catalog['sensor'] = detN
+                catalog['detector'] = det
+                catalog['mjd'] = info.getDate().get()
+                catalog['airmass']  = info.getBoresightAirmass()
+
+                cats.append(catalog)
+        last_idx = idx
+        last_vn = vn
+
+    mastercat = vstack(cats)
+    try:
+        mastercat.write(f'{SCRATCH}/results/full_table_diasrc.fits')
+    except:
+        pass
+    mastercat = mastercat.to_pandas()
+    #diaSrc_store[store_key] = mastercat
+    #mastercat = optimize_df(mastercat)
+
+    diaSrc_store['full_table'] = mastercat
+    diaSrc_store.flush()
+
+fullschema = list(cat_cal.schema)
+with open('schema.txt', 'w') as schemafile:
     schemafile.write('Name'.ljust(54)+' Doc\n')
     for asch in fullschema:
         field = asch.getField()
@@ -203,85 +327,9 @@ with open('schema_forced.txt', 'w') as schemafile:
         schemafile.write(field.getDoc())
         schemafile.write('\n')
 
-#diaSrc_store[store_key] = mastercat
-diaSrc_store['full_table_forced'] = mastercat
-diaSrc_store.flush()
-# endregion -------------------------------------------------------------------------------------------
-del(mastercat)
-del(cats)
-# iterating over tract and patches to build diaSrc catalogues
-# region ----------------------------------------------------------------------------------------------
-metas = []
-for tract, patches in tpatches:
-    tract_info = skymap[tract.getId()]
-    for patch in patches:
-        # identify the t+p
-        patch_i, patch_j = patch.getIndex()
-        patch_str = '{},{}'.format(patch_i, patch_j)
-        tpId = {'tract': tract.getId(), 'patch': patch_str}
-        
-        #store_key = str(tract.getId())+'_'+str(patch_i)+str(patch_j)
-        #if store_key in diaSrc_store: continue
-        print('starting with ', tpId)
-        metadata = diabutler.queryMetadata('deepDiff_diaSrc', metacols,dataId=tpId)
-        metadata = pd.DataFrame(metadata, columns=metacols)
-        metadata = metadata[metadata['filter']!='u']
-        metadata = metadata[metadata['filter']!='y']
-        #metadata['tract'] = tpId['tract']
-        #metadata['patch'] = tpId['patch']
-
-        #metadata = optimize_df(metadata)        
-        metas.append(metadata)
-metadata = pd.concat(metas).drop_duplicates()
-
-cats = []
-#firstcat = None
-path = os.path.join(diarepo, 'deepDiff')
-diffpath = 'v{}-f{}/{}/diaSrc_{}-{}-{}-{}-det{}.fits'
-#diffpath = 'v{}-f{}/{}/diaForced_{}-{}-{}-{}-det{}.fits'
-for idx, idr, vn, fna, raf, detN, det in metadata.itertuples():
-    #if fna=='y' or fna=='u': continue
-    pp = diffpath.format(str(vn).zfill(8), fna, raf, str(vn).zfill(8), 
-                         fna, raf, detN, str(det).zfill(3))
-    dpath = os.path.join(path, pp)
-    if os.path.exists(dpath):
-        catalog = diabutler.get('deepDiff_diaSrc', visit=vn, 
-                #tract=int(t), patch=p, 
-                detector=det).asAstropy()
-        #if firstcat is None:
-        #    firstcat = diabutler.get('deepDiff_diaSrc', visit=vn, detector=det)
-        if len(catalog) != 0:
-            info = diabutler.get('calexp', visit=vn, detector=det).getInfo().getVisitInfo()
-            catalog['visit_n'] = vn
-            catalog['filter'] = fna
-            catalog['raft'] = raf
-            catalog['sensor'] = detN
-            catalog['detector'] = det
-            catalog['mjd'] = info.getDate().get()
-            catalog['airmass']  = info.getBoresightAirmass()
-            cats.append(catalog)
-
-#import ipdb; ipdb.set_trace()
-
-mastercat = vstack(cats)
-mastercat = mastercat.to_pandas()
-#diaSrc_store[store_key] = mastercat
-#mastercat = optimize_df(mastercat)
-
-diaSrc_store['full_table'] = mastercat
-diaSrc_store.flush()
 print('done storing stuff in {}'.format(store))
 # endregion -------------------------------------------------------------------------------------------
+
 diaSrc_store.close()
 
 
-#fullschema = list(firstcat.schema)
-#with open('schema.txt', 'w') as schemafile:
-#    schemafile.write('Name'.ljust(54)+' Doc\n')
-#    for asch in fullschema:
-#        field = asch.getField()
-
-#        schemafile.write(field.getName().ljust(54))
-#        schemafile.write(' ')
-#        schemafile.write(field.getDoc())
-#        schemafile.write('\n')
