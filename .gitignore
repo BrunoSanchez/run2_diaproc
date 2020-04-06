@@ -12,3 +12,4 @@ driver_commands/*.sh
 *.csv
 g
 *.out
+*.pdf
