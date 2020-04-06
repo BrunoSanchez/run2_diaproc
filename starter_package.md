@@ -1,70 +1,43 @@
 
 ## Starter package for DIA subtractions using the LSST stack.
 
+Hi! This file is to share some of the details regarding DIA analysis in NERSC/Cori using the lsst pipeline stack provided by DESC. 
+In principle, you don't need to know much of the configuration 
 ----------
 
 ### Environment setup 
+#### Pipeline DIA stack
 First of all you will need to set up the environment. 
-The set of shell commands to do this are the following, and they need to run from 
-your home directory at NERSC CORI computers:
+From now on I am assuming you have loaded the needed python environments that are listed in the confluence page dedicated to starting on NERSC and jupyter. If you haven't done this, please come back after this is completed.
 
-```
-module unload python
-module unload PrgEnv-intel/6.0.5
-module load PrgEnv-gnu/6.0.5
-module swap gcc gcc/8.3.0
-module rm craype-network-aries
-module rm cray-libsci/19.02.1
-module unload craype
-export CC=gcc
-source /cvmfs/sw.lsst.eu/linux-x86_64/lsst_distrib/w_2019_19/loadLSST.bash
-setup lsst_distrib
-cd $HOME/dia_pipe
-scons
-cd ..
-setup -jr $HOME/dia_pipe/
-git clone https://github.com/lsst/obs_lsst.git
-cd $HOME/obs_lsst/
-git checkout w.2019.19_diff
-scons
-cd ..
-setup -jr $HOME/obs_lsst/
-export HDF5_USE_FILE_LOCKING=FALSE
-export OMP_NUM_THREADS=1
-```
+The shell command to run is the following, and it needs not to be run from 
+any specific directory:
+
+`source /global/cfs/cdirs/lsst/groups/SN/dia/code/v19/setup_nersc.sh`
 
 After this you should be able to see the prefix of your prompt with the tag of the 
 pipeline build you are using.
 
-Once you do this once, the lines with the `git clone` and `scons` they can be ignored, 
-saving setup time for your following terminal sessions.
-The setup script then should read:
+It is rather convienent to set this as an alias in your `.bashrc` file in your home directory at Cori.
+
+#### DIA Shared area at NERSC filesystem
+The computing infrastructure DESC team has prepared a specific area in the filesystem of Cori to place data and code at the following locations:
+`/global/cfs/cdirs/lsst/groups/SN/dia`
+
+It is also important to know, that the previous script sets up a couple of environment variables that hold this handy information for you:
 ```
-module unload python
-module unload PrgEnv-intel/6.0.5
-module load PrgEnv-gnu/6.0.5
-module swap gcc gcc/8.3.0
-module rm craype-network-aries
-module rm cray-libsci/19.02.1
-module unload craype
-export CC=gcc
-source /cvmfs/sw.lsst.eu/linux-x86_64/lsst_distrib/w_2019_19/loadLSST.bash
-setup lsst_distrib
-#cd $HOME/dia_pipe
-#scons
-#cd ..
-setup -jr $HOME/dia_pipe/
-#git clone https://github.com/lsst/obs_lsst.git
-#cd $HOME/obs_lsst/
-#git checkout w.2019.19_diff
-#scons
-#cd ..
-setup -jr $HOME/obs_lsst/
-export HDF5_USE_FILE_LOCKING=FALSE
-export OMP_NUM_THREADS=1
+DESC_DIA_DIR = /global/cfs/cdirs/lsst/groups/SN/dia/code/v19
+DESC_DIA_INSTALL = /global/cfs/cdirs/lsst/groups/SN/dia/code
+DESC_DIA_VER = v19
 ```
+It is also recommended that you create your own directory for storing output of your analysis under the following location:
+`$DESC_DIA_DIR/../../data/`
+
+At this locations the permissions are open for any member of the collaboration. This makes sharing results a lot easier and collaborating inside the DIA topical team.
 
 ### The templates
+
+I have created a bunch of templates using Run2.1i data, for the rectangular region of `56 < RA < 58; -32 < Dec < -31` and it can be used anytime for testing subtraction code.
 
 The templates are located in this path
 `/global/cscratch1/sd/bos0109/templates_rect`
